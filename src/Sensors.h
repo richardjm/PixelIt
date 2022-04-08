@@ -1,5 +1,5 @@
-#ifndef TemperatureSensor_h
-#define TemperatureSensor_h
+#ifndef PixelIt_TemperatureSensor_h
+#define PixelIt_TemperatureSensor_h
 #include <Arduino.h>
 #include <Wire.h>
 #include "Config.h"
@@ -57,7 +57,6 @@ struct LuxSensorData {
 
 class Sensors {
     public:
-        Sensors();
         Sensors(Config &c);
 
         void Initialise();

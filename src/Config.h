@@ -1,5 +1,5 @@
-#ifndef Config_h
-#define Config_h
+#ifndef PixelIt_Config_h
+#define PixelIt_Config_h
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
