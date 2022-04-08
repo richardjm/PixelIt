@@ -1,8 +1,8 @@
-#include <Arduino.h>
-#include <ArduinoJson.h>
-
 #ifndef Config_h
 #define Config_h
+
+#include <Arduino.h>
+#include <ArduinoJson.h>
 
 enum TemperatureUnit
 {
@@ -23,12 +23,15 @@ enum btnActions
 class Config {
     public:
         Config(String version, bool isESP8266);
+        
         void SaveConfig();
         void SetConfig(JsonObject &json);
         void LoadConfig();
 
         void SetLogDelegate(void (*log)(String, String));
         void SetBrightnessDelegate(void (*setBrightness)(float));
+
+        uint8_t TranslatePin(String pin);
 
         TemperatureUnit temperatureUnit;
 

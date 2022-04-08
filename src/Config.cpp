@@ -103,7 +103,7 @@ void Config::SaveConfig()
 #endif
 	json.printTo(configFile);
 	configFile.close();
-	Log("SaveConfig", "Saved");
+	Log(F("SaveConfig"), F("Saved"));
 	// end save
 }
 
@@ -129,13 +129,13 @@ void Config::LoadConfig()
 			if (json.success())
 			{
 				SetConfigVariables(json);
-				Log("LoadConfig", "Loaded");
+				Log(F("LoadConfig"), F("Loaded"));
 			}
 		}
 	}
 	else
 	{
-		Log("LoadConfig", "No Configfile, init new file");
+		Log(F("LoadConfig"), F("No Configfile, init new file"));
 		SaveConfig();
 	}
 }
@@ -415,4 +415,30 @@ void Config::SetConfigVariables(JsonObject &json)
 	{
 		initialVolume = json["initialVolume"].as<uint>();
 	}
+}
+
+uint8_t Config::TranslatePin(String pin)
+{
+	if (pin == "Pin_D0")
+		return D0;
+	if (pin == "Pin_D1")
+		return D1;
+	if (pin == "Pin_D2")
+		return D2;
+	if (pin == "Pin_D3")
+		return D3;
+	if (pin == "Pin_D4")
+		return D4;
+	if (pin == "Pin_D5")
+		return D5;
+	if (pin == "Pin_D6")
+		return D6;
+	if (pin == "Pin_D7")
+		return D7;
+	if (pin == "Pin_D8")
+		return D8;
+	if (pin == "Pin_27")
+		return 27;
+	Log(F("TranslatePin"), F("Unknown Pin"));
+	return LED_BUILTIN;
 }

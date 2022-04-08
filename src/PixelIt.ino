@@ -13,11 +13,7 @@
 
 #include <Arduino.h>
 // BME Sensor
-#include <Wire.h>
-#include <Adafruit_Sensor.h>
-#include <Adafruit_BME280.h>
-#include <Adafruit_BMP280.h>
-#include <Adafruit_BME680.h>
+
 // WiFi & Web
 #include <WebSocketsServer.h>
 #include <WiFiClient.h>
@@ -31,10 +27,6 @@
 #include <FastLED.h>
 #include <FastLED_NeoMatrix.h>
 // Misc
-#include <BH1750.h>
-#include <Max44009.h>
-#include <LightDependentResistor.h>
-#include <DHTesp.h>
 #include <DFPlayerMini_Fast.h>
 #include <SoftwareSerial.h>
 #include "ColorConverterLib.h"
@@ -45,6 +37,7 @@
 #include "Webinterface.h"
 #include "Tools.h"
 #include "Config.h"
+#include "Sensors.h"
 
 #define VERSION "0.4.00"
 
@@ -81,7 +74,6 @@ const int MQTT_RECONNECT_INTERVAL = 15000;
 #define MATRIX_PIN 27
 #endif
 
-
 #if defined(ESP8266)
 bool isESP8266 = true;
 #else
@@ -89,6 +81,7 @@ bool isESP8266 = false;
 #endif
 
 Config config = Config(VERSION, isESP8266);
+Sensors sensors = Sensors(config);
 
 enum btnStates
 {
@@ -101,40 +94,6 @@ unsigned long btnLastPressedMillis[] = {0, 0, 0};
 
 #define NUMMATRIX (32 * 8)
 CRGB leds[NUMMATRIX];
-
-#if defined(ESP32)
-TwoWire twowire(BME280_ADDRESS_ALTERNATE);
-#else
-TwoWire twowire;
-#endif
-Adafruit_BME280 *bme280;
-Adafruit_BMP280 *bmp280;
-Adafruit_BME680 *bme680;
-unsigned long lastBME680read = 0;
-DHTesp dht;
-
-// TempSensor
-enum TempSensor
-{
-	TempSensor_None,
-	TempSensor_BME280,
-	TempSensor_DHT,
-	TempSensor_BME680,
-	TempSensor_BMP280,
-};
-TempSensor tempSensor = TempSensor_None;
-
-LightDependentResistor *photocell;
-BH1750 *bh1750;
-Max44009 *max44009;
-
-enum LuxSensor
-{
-	LuxSensor_LDR,
-	LuxSensor_BH1750,
-	LuxSensor_Max44009,
-};
-LuxSensor luxSensor = LuxSensor_LDR;
 
 FastLED_NeoMatrix *matrix;
 WiFiClient espClient;
@@ -188,7 +147,6 @@ unsigned long sendInfoPrevMillis = 0;
 String oldGetMatrixInfo;
 String oldGetLuxSensor;
 String oldGetSensor;
-float currentLux = 0.0f;
 
 // MP3Player Vars
 String OldGetMP3PlayerInfo;
@@ -319,6 +277,59 @@ void HandleGetMatrixInfo()
 {
 	server.sendHeader(F("Connection"), F("close"));
 	server.send(200, F("application/json"), GetMatrixInfo());
+}
+
+String GetSensor()
+{
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject &root = jsonBuffer.createObject();
+
+	TempSensorData tempData = sensors.GetTempSensorData();
+	if (tempData.hasTemperature)
+	{
+		root["temperature"] = tempData.temperature;
+	}
+	else
+	{
+		root["temperature"] = "Not installed";
+	}
+
+	if (tempData.hasHumidity)
+	{
+		root["humidity"] = tempData.humidity;
+	}
+	else
+	{
+		root["humidity"] = "Not installed";
+	}
+
+	if (tempData.hasPressure)
+	{
+		root["pressure"] = tempData.pressure;
+	}
+	else
+	{
+		root["pressure"] = "Not installed";
+	}
+
+	if (tempData.hasGas)
+	{
+		root["gas"] = tempData.gas;
+	}
+	else
+	{
+		root["gas"] = "Not installed";
+	}
+	root["humidity"] = tempData.hasHumidity ? String(tempData.humidity) : "Not installed";
+	root["pressure"] = tempData.hasPressure ? String(tempData.pressure) : "Not installed";
+	root["gas"] = tempData.hasGas ? String(tempData.gas) : "Not installed";
+
+	String json;
+	root.printTo(json);
+
+	// Log(F("Sensor readings"), F("Hum/Temp/Press/Gas:"));
+	// Log(F("Sensor readings"), json);
+	return json;
 }
 
 // void Handle_factoryreset()
@@ -972,142 +983,13 @@ String GetConfig()
 	return "";
 }
 
-String GetSensor()
-{
-	DynamicJsonBuffer jsonBuffer;
-	JsonObject &root = jsonBuffer.createObject();
-	if (tempSensor == TempSensor_BME280)
-	{
-		const float currentTemp = bme280->readTemperature();
-		root["temperature"] = currentTemp + config.temperatureOffset;
-		root["humidity"] = bme280->readHumidity() + config.humidityOffset;
-		root["pressure"] = (bme280->readPressure() / 100.0F) + config.pressureOffset;
-		root["gas"] = "Not installed";
-
-		if (config.temperatureUnit == TemperatureUnit_Fahrenheit)
-		{
-			root["temperature"] = CelsiusToFahrenheit(currentTemp) + config.temperatureOffset;
-		}
-	}
-	else if (tempSensor == TempSensor_DHT)
-	{
-		const float currentTemp = dht.getTemperature();
-		root["temperature"] = currentTemp + config.temperatureOffset;
-		root["humidity"] = roundf(dht.getHumidity() + config.humidityOffset);
-		root["pressure"] = "Not installed";
-		root["gas"] = "Not installed";
-
-		if (config.temperatureUnit == TemperatureUnit_Fahrenheit)
-		{
-			root["temperature"] = CelsiusToFahrenheit(currentTemp) + config.temperatureOffset;
-		}
-	}
-	else if (tempSensor == TempSensor_BME680)
-	{
-		/***************************************************************************************************
-		// BME680 requires about 100ms for a read (heating the gas sensor). A blocking read can hinder
-		// animations and scrolling. Therefore, we will use asynchronous reading in most cases.
-		//
-		// First call: starts measuring sequence, returns previous values.
-		// Second call: performs read, returns current values.
-		//
-		// As long as there are more than ~200ms between the calls, there won't be blocking.
-		// PixelIt usually uses a 3000ms loop.
-		//
-		// When there's no loop (no Websock connection, no MQTT) but only HTTP API calls, this would result
-		// in only EVERY OTHER call return new values (which have been taken shortly after the previous call).
-		// This is okay when you are polling very frequently, but might be undesirable when polling every
-		// couple of minutes or so. Therefore: if previous reading is more than 20000ms old, perform
-		// read in any case, even if it might become blocking.
-		//
-		// Please note: the gas value not only depends on gas, but also on the time since last read.
-		// Frequent reads will yield higher values than infrequent reads. There will be a difference
-		// even if we switch from 6secs to 3secs! So, do not attempt to compare values of readings
-		// with an interval of 3 secs to values of readings with an interval of 60 secs!
-		*/
-
-		const int elapsedSinceLastRead = millis() - lastBME680read;
-		const int remain = bme680->remainingReadingMillis();
-
-		if (remain == -1) // no current values available
-		{
-			bme680->beginReading(); // start measurement process
-			// return previous values
-			const float currentTemp = bme680->temperature;
-			root["temperature"] = currentTemp + config.temperatureOffset;
-			root["humidity"] = bme680->humidity + config.humidityOffset;
-			root["pressure"] = (bme680->pressure / 100.0F) + config.pressureOffset;
-			root["gas"] = (bme680->gas_resistance / 1000.0F) + config.gasOffset;
-			if (config.temperatureUnit == TemperatureUnit_Fahrenheit)
-			{
-				root["temperature"] = CelsiusToFahrenheit(currentTemp) + config.temperatureOffset;
-			}
-		}
-
-		if (remain >= 0 || elapsedSinceLastRead > 20000)
-		// remain==0: measurement completed, not read yet
-		// remain>0: measurement still running, but as we already are in the next loop call, block and read
-		// elapsedSinceLastRead>20000: obviously, remain==-1. But as there haven't been loop calls recently, this seems to be an "infrequent" API call. Perform blocking read.
-		{
-			if (bme680->endReading()) // will become blocking if measurement not complete yet
-			{
-				lastBME680read = millis();
-				const float currentTemp = bme680->temperature;
-				root["temperature"] = currentTemp + config.temperatureOffset;
-				root["humidity"] = bme680->humidity + config.humidityOffset;
-				root["pressure"] = (bme680->pressure / 100.0F) + config.pressureOffset;
-				root["gas"] = (bme680->gas_resistance / 1000.0F) + config.gasOffset;
-				if (config.temperatureUnit == TemperatureUnit_Fahrenheit)
-				{
-					root["temperature"] = CelsiusToFahrenheit(currentTemp) + config.temperatureOffset;
-				}
-			}
-			else
-			{
-				root["humidity"] = "Error while reading";
-				root["temperature"] = "Error while reading";
-				root["pressure"] = "Error while reading";
-				root["gas"] = "Error while reading";
-			}
-		}
-	}
-	else if (tempSensor == TempSensor_BMP280)
-	{
-		const float currentTemp = bmp280->readTemperature();
-		root["temperature"] = currentTemp + config.temperatureOffset;
-		// root["humidity"] = bmp280->readHumidity() + humidityOffset;
-		root["humidity"] = "Not installed";
-		root["pressure"] = (bmp280->readPressure() / 100.0F) + config.pressureOffset;
-		root["gas"] = "Not installed";
-
-		if (config.temperatureUnit == TemperatureUnit_Fahrenheit)
-		{
-			root["temperature"] = CelsiusToFahrenheit(currentTemp) + config.temperatureOffset;
-		}
-	}
-
-	else
-	{
-		root["humidity"] = "Not installed";
-		root["temperature"] = "Not installed";
-		root["pressure"] = "Not installed";
-		root["gas"] = "Not installed";
-	}
-
-	String json;
-	root.printTo(json);
-
-	// Log(F("Sensor readings"), F("Hum/Temp/Press/Gas:"));
-	// Log(F("Sensor readings"), json);
-	return json;
-}
 
 String GetLuxSensor()
 {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject &root = jsonBuffer.createObject();
 
-	root["lux"] = currentLux;
+	root["lux"] = sensors.LastLux.lux;
 
 	String json;
 	root.printTo(json);
@@ -1655,7 +1537,7 @@ boolean MQTTreconnect()
 		String topic;
 		String payload;
 
-		if (tempSensor != TempSensor_None)
+		if (sensors.tempSensor != TempSensor_None)
 		{
 			topic = configTopicTemplate;
 			topic.replace(F("#SENSORNAME#"), F("Temperature"));
@@ -1679,7 +1561,7 @@ boolean MQTTreconnect()
 			payload.replace(F("#VALUENAME#"), F("humidity"));
 			client.publish(topic.c_str(), payload.c_str(), true);
 		}
-		if (tempSensor == TempSensor_BME280 || tempSensor == TempSensor_BMP280 || tempSensor == TempSensor_BME680)
+		if (sensors.tempSensor == TempSensor_BME280 || sensors.tempSensor == TempSensor_BMP280 || sensors.tempSensor == TempSensor_BME680)
 		{
 			topic = configTopicTemplate;
 			topic.replace(F("#SENSORNAME#"), F("Pressure"));
@@ -1693,7 +1575,7 @@ boolean MQTTreconnect()
 			client.publish(topic.c_str(), payload.c_str(), true);
 		}
 
-		if (tempSensor == TempSensor_BME680)
+		if (sensors.tempSensor == TempSensor_BME680)
 		{
 			topic = configTopicTemplate;
 			topic.replace(F("#SENSORNAME#"), F("VOC"));
@@ -2036,50 +1918,7 @@ int *GetUserCutomCorrection()
 	return rgbArray;
 }
 
-LightDependentResistor::ePhotoCellKind TranslatePhotocell(String photocell)
-{
-	if (photocell == "GL5516")
-		return LightDependentResistor::GL5516;
-	if (photocell == "GL5528")
-		return LightDependentResistor::GL5528;
-	if (photocell == "GL5537_1")
-		return LightDependentResistor::GL5537_1;
-	if (photocell == "GL5537_2")
-		return LightDependentResistor::GL5537_2;
-	if (photocell == "GL5539")
-		return LightDependentResistor::GL5539;
-	if (photocell == "GL5549")
-		return LightDependentResistor::GL5549;
-	Log(F("Zuordnung LDR"), F("Unbekannter LDR-Typ"));
-	return LightDependentResistor::GL5528;
-}
 
-uint8_t TranslatePin(String pin)
-{
-
-	if (pin == "Pin_D0")
-		return D0;
-	if (pin == "Pin_D1")
-		return D1;
-	if (pin == "Pin_D2")
-		return D2;
-	if (pin == "Pin_D3")
-		return D3;
-	if (pin == "Pin_D4")
-		return D4;
-	if (pin == "Pin_D5")
-		return D5;
-	if (pin == "Pin_D6")
-		return D6;
-	if (pin == "Pin_D7")
-		return D7;
-	if (pin == "Pin_D8")
-		return D8;
-	if (pin == "Pin_27")
-		return 27;
-	Log(F("Pin-Zuordnung"), F("Unbekannter Pin"));
-	return LED_BUILTIN;
-}
 
 void ClearTextArea()
 {
@@ -2127,7 +1966,6 @@ int DayOfWeekFirstMonday(int OrigDayofWeek)
 /////////////////////////////////////////////////////////////////////
 void setup()
 {
-
 	Serial.begin(115200);
 
 	// Mounting FileSystem
@@ -2155,6 +1993,8 @@ void setup()
 		Serial.println(F("Failed to mount FS"));
 	}
 
+	sensors.Initialise();
+
 	// Init SetGPIO Array
 	for (int i = 0; i < SET_GPIO_SIZE; i++)
 	{
@@ -2162,79 +2002,6 @@ void setup()
 		setGPIOReset[i].resetMillis = -1;
 	}
 
-	// I2C Sensors
-	twowire.begin(TranslatePin(config.SDAPin), TranslatePin(config.SCLPin));
-
-	// Init LightSensor
-	bh1750 = new BH1750();
-	if (bh1750->begin(BH1750::CONTINUOUS_HIGH_RES_MODE, 0x23, &twowire))
-	{
-		Log(F("Setup"), F("BH1750 started"));
-		luxSensor = LuxSensor_BH1750;
-	}
-	else
-	{
-		delete bh1750;
-		max44009 = new Max44009(Max44009::Boolean::False);
-		max44009->configure(MAX44009_DEFAULT_ADDRESS, &twowire, Max44009::Boolean::False);
-		if (max44009->isConnected())
-		{
-			Log(F("Setup"), F("Max44009/GY-049 started"));
-			luxSensor = LuxSensor_Max44009;
-		}
-		else
-		{
-			delete max44009;
-			photocell = new LightDependentResistor(LDR_PIN, config.ldrPulldown, TranslatePhotocell(config.ldrDevice), 10, config.ldrSmoothing);
-			photocell->setPhotocellPositionOnGround(false);
-			luxSensor = LuxSensor_LDR;
-		}
-	}
-
-	// Init Temp Sensors
-	bme280 = new Adafruit_BME280();
-	if (bme280->begin(BME280_ADDRESS_ALTERNATE, &twowire))
-	{
-		Log(F("Setup"), F("BME280 started"));
-		tempSensor = TempSensor_BME280;
-	}
-	else
-	{
-		delete bme280;
-		bmp280 = new Adafruit_BMP280(&twowire);
-		Log(F("Setup"), F("BMP280 Trying"));
-		if (bmp280->begin(BMP280_ADDRESS_ALT, 0x58))
-		{
-			Log(F("Setup"), F("BMP280 started"));
-			tempSensor = TempSensor_BMP280;
-		}
-		else
-		{
-			delete bmp280;
-			bme680 = new Adafruit_BME680(&twowire);
-			if (bme680->begin())
-			{
-				Log(F("Setup"), F("BME680 started"));
-				tempSensor = TempSensor_BME680;
-			}
-			else
-			{
-				delete bme680;
-				// AM2320 needs a delay to be reliably initialized
-				delay(800);
-				dht.setup(TranslatePin(config.onewirePin), DHTesp::DHT22);
-				if (!isnan(dht.getHumidity()) && !isnan(dht.getTemperature()))
-				{
-					Log(F("Setup"), F("DHT started"));
-					tempSensor = TempSensor_DHT;
-				}
-				else
-				{
-					Log(F("Setup"), F("No BMP280, BME280, BME 680 or DHT Sensor found"));
-				}
-			}
-		}
-	}
 
 	// Matix Type 1 (Colum major)
 	if (config.matrixType == 1)
@@ -2343,7 +2110,7 @@ void setup()
 		Log(F("Setup"), F("MQTT started"));
 	}
 
-	softSerial = new SoftwareSerial(TranslatePin(config.dfpRXPin), TranslatePin(config.dfpTXPin));
+	softSerial = new SoftwareSerial(config.TranslatePin(config.dfpRXPin), config.TranslatePin(config.dfpTXPin));
 
 	softSerial->begin(9600);
 	Log(F("Setup"), F("Software Serial started"));
@@ -2401,11 +2168,11 @@ void loop()
 	{
 		if (config.btnEnabled[b])
 		{
-			if ((btnState[b] == btnState_Released) && (digitalRead(TranslatePin(config.btnPin[b])) == config.btnPressedLevel[b]))
+			if ((btnState[b] == btnState_Released) && (digitalRead(config.TranslatePin(config.btnPin[b])) == config.btnPressedLevel[b]))
 			{
 				btnState[b] = btnState_PressedNew;
 			}
-			if ((btnState[b] == btnState_PressedBefore) && (digitalRead(TranslatePin(config.btnPin[b])) != config.btnPressedLevel[b]))
+			if ((btnState[b] == btnState_PressedBefore) && (digitalRead(config.TranslatePin(config.btnPin[b])) != config.btnPressedLevel[b]))
 			{
 				btnState[b] = btnState_Released;
 			}
@@ -2486,24 +2253,13 @@ void loop()
 	{
 		sendLuxPrevMillis = millis();
 
-		if (luxSensor == LuxSensor_BH1750)
-		{
-			currentLux = bh1750->readLightLevel() + config.luxOffset;
-		}
-		else if (luxSensor == LuxSensor_Max44009)
-		{
-			currentLux = max44009->getLux() + config.luxOffset;
-		}
-		else
-		{
-			currentLux = (roundf(photocell->getSmoothedLux() * 1000) / 1000) + config.luxOffset;
-		}
+		LuxSensorData luxData = sensors.GetLuxSensorData();
 
 		SendLDR(false);
 
 		if (!config.sleepMode && config.matrixBrightnessAutomatic)
 		{
-			float newBrightness = map(currentLux, config.mbaLuxMin, config.mbaLuxMax, config.mbaDimMin, config.mbaDimMax);
+			float newBrightness = map(luxData.lux, config.mbaLuxMin, config.mbaLuxMax, config.mbaDimMin, config.mbaDimMax);
 			// Max brightness 255
 			if (newBrightness > 255)
 			{
@@ -2518,7 +2274,7 @@ void loop()
 			if (newBrightness != config.matrixBrightness)
 			{
 				SetCurrentMatrixBrightness(newBrightness);
-				Log(F("Auto Brightness"), "Lux: " + String(currentLux) + " set brightness to " + String(config.matrixBrightness));
+				Log(F("Auto Brightness"), "Lux: " + String(luxData.lux) + " set brightness to " + String(config.matrixBrightness));
 			}
 		}
 	}
