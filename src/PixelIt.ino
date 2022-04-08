@@ -44,8 +44,9 @@
 #include "PixelItFont.h"
 #include "Webinterface.h"
 #include "Tools.h"
+#include "Config.h"
 
-#define VERSION "0.3.18"
+#define VERSION "0.4.00"
 
 void FadeOut(int = 10, int = 0);
 void FadeIn(int = 10, int = 0);
@@ -80,18 +81,14 @@ const int MQTT_RECONNECT_INTERVAL = 15000;
 #define MATRIX_PIN 27
 #endif
 
-String dfpRXPin = "Pin_D7";
-String dfpTXPin = "Pin_D8";
-String onewirePin = "Pin_D1";
-String SCLPin = "Pin_D1";
-String SDAPin = "Pin_D3";
-String ldrDevice = "GL5516";
-unsigned long ldrPulldown = 10000; // 10k pulldown-resistor
-unsigned int ldrSmoothing = 0;
 
-String btnPin[] = {"Pin_D0", "Pin_D4", "Pin_D5"};
-bool btnEnabled[] = {false, false, false};
-int btnPressedLevel[] = {LOW, LOW, LOW};
+#if defined(ESP8266)
+bool isESP8266 = true;
+#else
+bool isESP8266 = false;
+#endif
+
+Config config = Config(VERSION, isESP8266);
 
 enum btnStates
 {
@@ -102,26 +99,8 @@ enum btnStates
 btnStates btnState[] = {btnState_Released, btnState_Released, btnState_Released};
 unsigned long btnLastPressedMillis[] = {0, 0, 0};
 
-enum btnActions
-{
-	btnAction_DoNothing = 0,
-	btnAction_GotoClock = 1,
-	btnAction_ToggleSleepMode = 2,
-	btnAction_MP3PlayPause = 3,
-	btnAction_MP3PlayPrevious = 4,
-	btnAction_MP3PlayNext = 5,
-};
-
-btnActions btnAction[] = {btnAction_ToggleSleepMode, btnAction_GotoClock, btnAction_DoNothing};
-
 #define NUMMATRIX (32 * 8)
 CRGB leds[NUMMATRIX];
-
-#if defined(ESP8266)
-bool isESP8266 = true;
-#else
-bool isESP8266 = false;
-#endif
 
 #if defined(ESP32)
 TwoWire twowire(BME280_ADDRESS_ALTERNATE);
@@ -144,14 +123,6 @@ enum TempSensor
 	TempSensor_BMP280,
 };
 TempSensor tempSensor = TempSensor_None;
-
-// TemperatureUnit
-enum TemperatureUnit
-{
-	TemperatureUnit_Celsius,
-	TemperatureUnit_Fahrenheit
-};
-TemperatureUnit temperatureUnit = TemperatureUnit_Celsius;
 
 LightDependentResistor *photocell;
 BH1750 *bh1750;
@@ -183,22 +154,6 @@ DFPlayerMini_Fast mp3Player;
 SoftwareSerial *softSerial;
 uint initialVolume = 10;
 
-// Matrix Vars
-int currentMatrixBrightness = 127;
-bool matrixBrightnessAutomatic = true;
-int mbaDimMin = 20;
-int mbaDimMax = 100;
-int mbaLuxMin = 0;
-int mbaLuxMax = 400;
-int matrixType = 1;
-String note;
-String hostname;
-String matrixTempCorrection = "default";
-
-// System Vars
-bool sleepMode = false;
-bool bootScreenAktiv = true;
-String optionsVersion = "";
 // Millis timestamp of the last receiving screen
 unsigned long lastScreenMessageMillis = 0;
 
@@ -206,42 +161,11 @@ unsigned long lastScreenMessageMillis = 0;
 uint16_t bmpArray[64];
 
 // Timerserver Vars
-String ntpServer = "de.pool.ntp.org";
+time_t clockLastUpdate;
 uint ntpRetryCounter = 0;
 unsigned long ntpTimeOut = 0;
 #define NTP_MAX_RETRYS 3
 #define NTP_TIMEOUT_SEC 60
-
-// Clock  Vars
-bool clockBlink = false;
-bool clockAktiv = true;
-bool clock24Hours = true;
-bool clockDateDayMonth = true;
-bool clockDayOfWeekFirstMonday = true;
-bool clockDayLightSaving = true;
-bool clockSwitchAktiv = true;
-bool clockWithSeconds = false;
-bool clockAutoFallbackActive = false;
-uint clockAutoFallbackAnimation = 1;
-uint clockSwitchSec = 7;
-uint clockCounterClock = 0;
-uint clockCounterDate = 0;
-float clockTimeZone = 1;
-time_t clockLastUpdate;
-uint8_t clockColorR = 255, clockColorG = 255, clockColorB = 255;
-uint clockAutoFallbackTime = 30;
-bool forceClock = false;
-
-// Scrolltext Vars
-bool scrollTextAktivLoop = false;
-unsigned long scrollTextPrevMillis = 0;
-uint scrollTextDefaultDelay = 100;
-uint scrollTextDelay;
-int scrollPos;
-int scrollposY;
-bool scrollwithBMP;
-int scrollxPixelText;
-String scrollTextString;
 
 // Animate BMP Vars
 uint16_t animationBmpList[10][64];
@@ -255,6 +179,7 @@ int animateBMPLimitLoops = -1;
 int animateBMPLoopCount = 0;
 int animateBMPLimitFrames = -1;
 int animateBMPFrameCount = 0;
+unsigned long scrollTextPrevMillis = 0;
 
 // Sensors Vars
 unsigned long sendLuxPrevMillis = 0;
@@ -264,11 +189,6 @@ String oldGetMatrixInfo;
 String oldGetLuxSensor;
 String oldGetSensor;
 float currentLux = 0.0f;
-float luxOffset = 0.0f;
-float temperatureOffset = 0.0f;
-float humidityOffset = 0.0f;
-float pressureOffset = 0.0f;
-float gasOffset = 0.0f;
 
 // MP3Player Vars
 String OldGetMP3PlayerInfo;
@@ -278,8 +198,7 @@ String websocketConnection[10];
 
 void SetCurrentMatrixBrightness(float newBrightness)
 {
-	currentMatrixBrightness = newBrightness;
-	matrix->setBrightness(currentMatrixBrightness);
+	matrix->setBrightness(newBrightness);
 }
 
 void EnteredHotspotCallback(WiFiManager *manager)
@@ -288,392 +207,6 @@ void EnteredHotspotCallback(WiFiManager *manager)
 	matrix->clear();
 	DrawTextHelper("HOTSPOT", false, false, false, false, false, false, NULL, 255, 255, 255, 3, 1);
 	FadeIn();
-}
-
-void SaveConfig()
-{
-	// save the custom parameters to FS
-	DynamicJsonBuffer jsonBuffer;
-	JsonObject &json = jsonBuffer.createObject();
-
-	json["version"] = VERSION;
-	json["isESP8266"] = isESP8266;
-	json["temperatureUnit"] = static_cast<int>(temperatureUnit);
-	json["matrixBrightnessAutomatic"] = matrixBrightnessAutomatic;
-	json["mbaDimMin"] = mbaDimMin;
-	json["mbaDimMax"] = mbaDimMax;
-	json["mbaLuxMin"] = mbaLuxMin;
-	json["mbaLuxMax"] = mbaLuxMax;
-	json["matrixBrightness"] = currentMatrixBrightness;
-	json["matrixType"] = matrixType;
-	json["note"] = note;
-	json["hostname"] = hostname;
-	json["matrixTempCorrection"] = matrixTempCorrection;
-	json["ntpServer"] = ntpServer;
-	json["clockTimeZone"] = clockTimeZone;
-
-	String clockColorHex;
-	ColorConverter::RgbToHex(clockColorR, clockColorG, clockColorB, clockColorHex);
-	json["clockColor"] = "#" + clockColorHex;
-
-	json["clockSwitchAktiv"] = clockSwitchAktiv;
-	json["clockSwitchSec"] = clockSwitchSec;
-	json["clock24Hours"] = clock24Hours;
-	json["clockDayLightSaving"] = clockDayLightSaving;
-	json["clockWithSeconds"] = clockWithSeconds;
-	json["clockAutoFallbackActive"] = clockAutoFallbackActive;
-	json["clockAutoFallbackTime"] = clockAutoFallbackTime;
-	json["clockAutoFallbackAnimation"] = clockAutoFallbackAnimation;
-	json["clockDateDayMonth"] = clockDateDayMonth;
-	json["clockDayOfWeekFirstMonday"] = clockDayOfWeekFirstMonday;
-	json["scrollTextDefaultDelay"] = scrollTextDefaultDelay;
-	json["bootScreenAktiv"] = bootScreenAktiv;
-	json["mqttAktiv"] = mqttAktiv;
-	json["mqttUser"] = mqttUser;
-	json["mqttPassword"] = mqttPassword;
-	json["mqttServer"] = mqttServer;
-	json["mqttMasterTopic"] = mqttMasterTopic;
-	json["mqttPort"] = mqttPort;
-	json["luxOffset"] = luxOffset;
-	json["temperatureOffset"] = temperatureOffset;
-	json["humidityOffset"] = humidityOffset;
-	json["pressureOffset"] = pressureOffset;
-	json["gasOffset"] = gasOffset;
-
-	json["dfpRXpin"] = dfpRXPin;
-	json["dfpTXpin"] = dfpTXPin;
-	json["onewirePin"] = onewirePin;
-	json["SCLPin"] = SCLPin;
-	json["SDAPin"] = SDAPin;
-	for (uint b = 0; b < 3; b++)
-	{
-		json["btn" + String(b) + "Pin"] = btnPin[b];
-		json["btn" + String(b) + "PressedLevel"] = btnPressedLevel[b];
-		json["btn" + String(b) + "Enabled"] = btnEnabled[b];
-		json["btn" + String(b) + "Action"] = static_cast<int>(btnAction[b]);
-	}
-	json["ldrDevice"] = ldrDevice;
-	json["ldrPulldown"] = ldrPulldown;
-	json["ldrSmoothing"] = ldrSmoothing;
-
-	json["initialVolume"] = initialVolume;
-
-#if defined(ESP8266)
-	File configFile = LittleFS.open("/config.json", "w");
-#elif defined(ESP32)
-	File configFile = SPIFFS.open("/config.json", "w");
-#endif
-	json.printTo(configFile);
-	configFile.close();
-	Log("SaveConfig", "Saved");
-	// end save
-}
-
-void LoadConfig()
-{
-	// file exists, reading and loading
-#if defined(ESP8266)
-	if (LittleFS.exists("/config.json"))
-	{
-		File configFile = LittleFS.open("/config.json", "r");
-#elif defined(ESP32)
-	if (SPIFFS.exists("/config.json"))
-	{
-		File configFile = SPIFFS.open("/config.json", "r");
-#endif
-		if (configFile)
-		{
-			// Serial.println("opened config file");
-
-			DynamicJsonBuffer jsonBuffer;
-			JsonObject &json = jsonBuffer.parseObject(configFile);
-
-			if (json.success())
-			{
-				SetConfigVariables(json);
-				Log("LoadConfig", "Loaded");
-			}
-		}
-	}
-	else
-	{
-		Log("LoadConfig", "No Configfile, init new file");
-		SaveConfig();
-	}
-}
-
-void SetConfig(JsonObject &json)
-{
-	SetConfigVariables(json);
-	SaveConfig();
-}
-
-void SetConfigVariables(JsonObject &json)
-{
-	if (json.containsKey("version"))
-	{
-		optionsVersion = json["version"].as<String>();
-	}
-
-	if (json.containsKey("temperatureUnit"))
-	{
-		temperatureUnit = static_cast<TemperatureUnit>(json["temperatureUnit"].as<int>());
-	}
-
-	if (json.containsKey("matrixBrightnessAutomatic"))
-	{
-		matrixBrightnessAutomatic = json["matrixBrightnessAutomatic"].as<bool>();
-	}
-
-	if (json.containsKey("mbaDimMin"))
-	{
-		mbaDimMin = json["mbaDimMin"].as<int>();
-	}
-
-	if (json.containsKey("mbaDimMax"))
-	{
-		mbaDimMax = json["mbaDimMax"].as<int>();
-	}
-
-	if (json.containsKey("mbaLuxMin"))
-	{
-		mbaLuxMin = json["mbaLuxMin"].as<int>();
-	}
-
-	if (json.containsKey("mbaLuxMax"))
-	{
-		mbaLuxMax = json["mbaLuxMax"].as<int>();
-	}
-
-	if (json.containsKey("matrixBrightness"))
-	{
-		SetCurrentMatrixBrightness(json["matrixBrightness"].as<float>());
-	}
-
-	if (json.containsKey("matrixType"))
-	{
-		matrixType = json["matrixType"].as<int>();
-	}
-
-	if (json.containsKey("note"))
-	{
-		note = json["note"].as<char *>();
-	}
-
-	if (json.containsKey("hostname"))
-	{
-		String hostname_raw = json["hostname"].as<char *>();
-		hostname = "";
-		for (uint8_t n = 0; n < hostname_raw.length(); n++)
-		{
-			if ((hostname_raw.charAt(n) >= '0' && hostname_raw.charAt(n) <= '9') || (hostname_raw.charAt(n) >= 'A' && hostname_raw.charAt(n) <= 'Z') || (hostname_raw.charAt(n) >= 'a' && hostname_raw.charAt(n) <= 'z') || (hostname_raw.charAt(n) == '_') || (hostname_raw.charAt(n) == '-'))
-				hostname += hostname_raw.charAt(n);
-		}
-		if (hostname.isEmpty())
-		{
-			hostname = "PixelIt";
-		}
-	}
-
-	if (json.containsKey("matrixTempCorrection"))
-	{
-		matrixTempCorrection = json["matrixTempCorrection"].as<char *>();
-	}
-
-	if (json.containsKey("ntpServer"))
-	{
-		ntpServer = json["ntpServer"].as<char *>();
-	}
-
-	if (json.containsKey("clockTimeZone"))
-	{
-		clockTimeZone = json["clockTimeZone"].as<float>();
-	}
-
-	if (json.containsKey("clockColor"))
-	{
-		ColorConverter::HexToRgb(json["clockColor"].as<String>(), clockColorR, clockColorG, clockColorB);
-	}
-
-	if (json.containsKey("clockSwitchAktiv"))
-	{
-		clockSwitchAktiv = json["clockSwitchAktiv"].as<bool>();
-	}
-
-	if (json.containsKey("clockSwitchSec"))
-	{
-		clockSwitchSec = json["clockSwitchSec"].as<uint>();
-	}
-
-	if (json.containsKey("clock24Hours"))
-	{
-		clock24Hours = json["clock24Hours"].as<bool>();
-	}
-
-	if (json.containsKey("clockDayLightSaving"))
-	{
-		clockDayLightSaving = json["clockDayLightSaving"].as<bool>();
-	}
-
-	if (json.containsKey("clockWithSeconds"))
-	{
-		clockWithSeconds = json["clockWithSeconds"].as<bool>();
-	}
-
-	if (json.containsKey("clockAutoFallbackActive"))
-	{
-		clockAutoFallbackActive = json["clockAutoFallbackActive"].as<bool>();
-	}
-
-	if (json.containsKey("clockAutoFallbackAnimation"))
-	{
-		clockAutoFallbackAnimation = json["clockAutoFallbackAnimation"].as<uint>();
-	}
-
-	if (json.containsKey("clockAutoFallbackTime"))
-	{
-		clockAutoFallbackTime = json["clockAutoFallbackTime"].as<uint>();
-	}
-
-	if (json.containsKey("clockDateDayMonth"))
-	{
-		clockDateDayMonth = json["clockDateDayMonth"].as<bool>();
-	}
-
-	if (json.containsKey("clockDayOfWeekFirstMonday"))
-	{
-		clockDayOfWeekFirstMonday = json["clockDayOfWeekFirstMonday"].as<bool>();
-	}
-
-	if (json.containsKey("scrollTextDefaultDelay"))
-	{
-		scrollTextDefaultDelay = json["scrollTextDefaultDelay"].as<uint>();
-	}
-
-	if (json.containsKey("bootScreenAktiv"))
-	{
-		bootScreenAktiv = json["bootScreenAktiv"].as<bool>();
-	}
-
-	if (json.containsKey("mqttAktiv"))
-	{
-		mqttAktiv = json["mqttAktiv"].as<bool>();
-	}
-
-	if (json.containsKey("mqttUser"))
-	{
-		mqttUser = json["mqttUser"].as<char *>();
-	}
-
-	if (json.containsKey("mqttPassword"))
-	{
-		mqttPassword = json["mqttPassword"].as<char *>();
-	}
-
-	if (json.containsKey("mqttServer"))
-	{
-		mqttServer = json["mqttServer"].as<char *>();
-	}
-
-	if (json.containsKey("mqttMasterTopic"))
-	{
-		mqttMasterTopic = json["mqttMasterTopic"].as<char *>();
-	}
-
-	if (json.containsKey("mqttPort"))
-	{
-		mqttPort = json["mqttPort"].as<int>();
-	}
-
-	if (json.containsKey("luxOffset"))
-	{
-		luxOffset = json["luxOffset"].as<float>();
-	}
-
-	if (json.containsKey("temperatureOffset"))
-	{
-		temperatureOffset = json["temperatureOffset"].as<float>();
-	}
-
-	if (json.containsKey("humidityOffset"))
-	{
-		humidityOffset = json["humidityOffset"].as<float>();
-	}
-
-	if (json.containsKey("pressureOffset"))
-	{
-		pressureOffset = json["pressureOffset"].as<float>();
-	}
-
-	if (json.containsKey("gasOffset"))
-	{
-		gasOffset = json["gasOffset"].as<float>();
-	}
-
-	if (json.containsKey("dfpRXpin"))
-	{
-		dfpRXPin = json["dfpRXpin"].as<char *>();
-	}
-
-	if (json.containsKey("dfpTXpin"))
-	{
-		dfpTXPin = json["dfpTXpin"].as<char *>();
-	}
-
-	if (json.containsKey("onewirePin"))
-	{
-		onewirePin = json["onewirePin"].as<char *>();
-	}
-
-	if (json.containsKey("SCLPin"))
-	{
-		SCLPin = json["SCLPin"].as<char *>();
-	}
-
-	if (json.containsKey("SDAPin"))
-	{
-		SDAPin = json["SDAPin"].as<char *>();
-	}
-
-	for (uint b = 0; b < 3; b++)
-	{
-		if (json.containsKey("btn" + String(b) + "Pin"))
-		{
-			btnPin[b] = json["btn" + String(b) + "Pin"].as<char *>();
-		}
-		if (json.containsKey("btn" + String(b) + "PressedLevel"))
-		{
-			btnPressedLevel[b] = json["btn" + String(b) + "PressedLevel"].as<int>();
-		}
-		if (json.containsKey("btn" + String(b) + "Enabled"))
-		{
-			btnEnabled[b] = json["btn" + String(b) + "Enabled"].as<bool>();
-		}
-		if (json.containsKey("btn" + String(b) + "Action"))
-		{
-			btnAction[b] = static_cast<btnActions>(json["btn" + String(b) + "Action"].as<int>());
-		}
-	}
-
-	if (json.containsKey("ldrDevice"))
-	{
-		ldrDevice = json["ldrDevice"].as<char *>();
-	}
-
-	if (json.containsKey("ldrPulldown"))
-	{
-		ldrPulldown = json["ldrPulldown"].as<unsigned long>();
-	}
-
-	if (json.containsKey("ldrSmoothing"))
-	{
-		ldrSmoothing = json["ldrSmoothing"].as<uint>();
-	}
-
-	if (json.containsKey("initialVolume"))
-	{
-		initialVolume = json["initialVolume"].as<uint>();
-	}
 }
 
 // void WifiSetup()
@@ -735,7 +268,7 @@ void HandleSetConfig()
 	if (json.success())
 	{
 		Log(F("SetConfig"), "Incoming Json length: " + String(json.measureLength()));
-		SetConfig(json);
+		config.SetConfig(json);
 		server.send(200, F("application/json"), F("{\"response\":\"OK\"}"));
 		delay(500);
 		ESP.restart();
@@ -824,10 +357,10 @@ void HandleAndSendButtonPress(uint button)
 		}
 	}
 
-	if (btnAction[button] == btnAction_ToggleSleepMode)
+	if (config.btnAction[button] == btnAction_ToggleSleepMode)
 	{
-		sleepMode = !sleepMode;
-		if (sleepMode)
+		config.sleepMode = !config.sleepMode;
+		if (config.sleepMode)
 		{
 			matrix->clear();
 			DrawTextHelper("Zzz", false, true, false, false, false, false, NULL, 0, 0, 255, 0, 1);
@@ -841,22 +374,22 @@ void HandleAndSendButtonPress(uint button)
 			DrawTextHelper("😀", false, true, false, false, false, false, NULL, 255, 200, 0, 0, 1);
 			FadeIn(30, 0);
 			delay(150);
-			forceClock = true;
+			config.forceClock = true;
 		}
 	}
-	if (btnAction[button] == btnAction_GotoClock)
+	if (config.btnAction[button] == btnAction_GotoClock)
 	{
-		forceClock = true;
+		config.forceClock = true;
 	}
-	if (btnAction[button] == btnAction_MP3PlayPrevious)
+	if (config.btnAction[button] == btnAction_MP3PlayPrevious)
 	{
 		mp3Player.playPrevious();
 	}
-	if (btnAction[button] == btnAction_MP3PlayNext)
+	if (config.btnAction[button] == btnAction_MP3PlayNext)
 	{
 		mp3Player.playNext();
 	}
-	if (btnAction[button] == btnAction_MP3PlayPause)
+	if (config.btnAction[button] == btnAction_MP3PlayPause)
 	{
 		if (mp3Player.isPlaying())
 		{
@@ -901,7 +434,7 @@ void callback(char *topic, byte *payload, unsigned int length)
 		}
 		else if (channel.equals("setConfig"))
 		{
-			SetConfig(json);
+			config.SetConfig(json);
 		}
 	}
 }
@@ -951,7 +484,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
 			}
 			else if (json.containsKey("setConfig"))
 			{
-				SetConfig(json["setConfig"]);
+				config.SetConfig(json["setConfig"]);
 				delay(500);
 				ESP.restart();
 			}
@@ -985,7 +518,7 @@ void CreateFrames(JsonObject &json)
 	if (json.containsKey("brightness"))
 	{
 		logMessage += F("Brightness Control, ");
-		currentMatrixBrightness = json["brightness"];
+		config.matrixBrightness = json["brightness"];
 	}
 
 	// Set GPIO
@@ -1094,24 +627,24 @@ void CreateFrames(JsonObject &json)
 	if (json.containsKey("sleepMode"))
 	{
 		logMessage += F("SleepMode Control, ");
-		sleepMode = json["sleepMode"];
+		config.sleepMode = json["sleepMode"];
 	}
 	// SleepMode
-	if (sleepMode)
+	if (config.sleepMode)
 	{
 		matrix->setBrightness(0);
 		matrix->show();
 	}
 	else
 	{
-		matrix->setBrightness(currentMatrixBrightness);
+		matrix->setBrightness(config.matrixBrightness);
 
 		// Prüfung für die Unterbrechnung der lokalen Schleifen
 		if (json.containsKey("bitmap") || json.containsKey("bitmaps") || json.containsKey("text") || json.containsKey("bar") || json.containsKey("bars") || json.containsKey("bitmapAnimation"))
 		{
 			lastScreenMessageMillis = millis();
-			clockAktiv = false;
-			scrollTextAktivLoop = false;
+			config.clockAktiv = false;
+			config.scrollTextAktivLoop = false;
 			animateBMPAktivLoop = false;
 		}
 
@@ -1198,31 +731,31 @@ void CreateFrames(JsonObject &json)
 			logMessage += F("InternalClock Control, ");
 			if (json["clock"]["show"])
 			{
-				scrollTextAktivLoop = false;
+				config.scrollTextAktivLoop = false;
 				animateBMPAktivLoop = false;
-				clockAktiv = true;
+				config.clockAktiv = true;
 
-				clockCounterClock = 0;
-				clockCounterDate = 0;
+				config.clockCounterClock = 0;
+				config.clockCounterDate = 0;
 
-				clockSwitchAktiv = json["clock"]["switchAktiv"];
+				config.clockSwitchAktiv = json["clock"]["switchAktiv"];
 
-				if (clockSwitchAktiv == true)
+				if (config.clockSwitchAktiv == true)
 				{
-					clockSwitchSec = json["clock"]["switchSec"];
+					config.clockSwitchSec = json["clock"]["switchSec"];
 				}
 
-				clockWithSeconds = json["clock"]["withSeconds"];
+				config.clockWithSeconds = json["clock"]["withSeconds"];
 
 				if (json["clock"]["color"]["r"].as<char *>() != NULL)
 				{
-					clockColorR = json["clock"]["color"]["r"].as<uint8_t>();
-					clockColorG = json["clock"]["color"]["g"].as<uint8_t>();
-					clockColorB = json["clock"]["color"]["b"].as<uint8_t>();
+					config.clockColorR = json["clock"]["color"]["r"].as<uint8_t>();
+					config.clockColorG = json["clock"]["color"]["g"].as<uint8_t>();
+					config.clockColorB = json["clock"]["color"]["b"].as<uint8_t>();
 				}
 				else if (json["clock"]["hexColor"].as<char *>() != NULL)
 				{
-					ColorConverter::HexToRgb(json["clock"]["hexColor"].as<char *>(), clockColorR, clockColorG, clockColorB);
+					ColorConverter::HexToRgb(json["clock"]["hexColor"].as<char *>(), config.clockColorR, config.clockColorG, config.clockColorB);
 				}
 				DrawClock(true);
 			}
@@ -1326,6 +859,7 @@ void CreateFrames(JsonObject &json)
 			}
 
 			// Hier einmal den Counter zurücksetzten
+			// Reset the counter here
 			animateBMPCounter = 0;
 			animateBMPLoopCount = 0;
 			animateBMPAktivLoop = true;
@@ -1335,14 +869,17 @@ void CreateFrames(JsonObject &json)
 		}
 
 		// Ist ein Text übergeben worden?
+		// Has a text been handed over?
 		bool scrollTextAktiv = false;
 		if (json.containsKey("text"))
 		{
 			logMessage += F("Text");
-			// Immer erstmal den Default Delay annehmen.
-			scrollTextDelay = scrollTextDefaultDelay;
+			// Immer erstmal den Default Delay annehmen
+			// Always accept the default delay first
+			config.scrollTextDelay = config.scrollTextDefaultDelay;
 
 			// Ist ScrollText auto oder true gewählt?
+			// Is ScrollText auto or true selected?
 			scrollTextAktiv = ((json["text"]["scrollText"] == "auto" || ((json["text"]["scrollText"]).is<bool>() && json["text"]["scrollText"])));
 
 			uint8_t r, g, b;
@@ -1374,7 +911,7 @@ void CreateFrames(JsonObject &json)
 				// Wurde ein Benutzerdefeniertes Delay übergeben?
 				if (json["text"]["scrollTextDelay"])
 				{
-					scrollTextDelay = json["text"]["scrollTextDelay"];
+					config.scrollTextDelay = json["text"]["scrollTextDelay"];
 				}
 
 				if (!(json["text"]["scrollText"]).is<bool>() && json["text"]["scrollText"] == "auto")
@@ -1442,27 +979,27 @@ String GetSensor()
 	if (tempSensor == TempSensor_BME280)
 	{
 		const float currentTemp = bme280->readTemperature();
-		root["temperature"] = currentTemp + temperatureOffset;
-		root["humidity"] = bme280->readHumidity() + humidityOffset;
-		root["pressure"] = (bme280->readPressure() / 100.0F) + pressureOffset;
+		root["temperature"] = currentTemp + config.temperatureOffset;
+		root["humidity"] = bme280->readHumidity() + config.humidityOffset;
+		root["pressure"] = (bme280->readPressure() / 100.0F) + config.pressureOffset;
 		root["gas"] = "Not installed";
 
-		if (temperatureUnit == TemperatureUnit_Fahrenheit)
+		if (config.temperatureUnit == TemperatureUnit_Fahrenheit)
 		{
-			root["temperature"] = CelsiusToFahrenheit(currentTemp) + temperatureOffset;
+			root["temperature"] = CelsiusToFahrenheit(currentTemp) + config.temperatureOffset;
 		}
 	}
 	else if (tempSensor == TempSensor_DHT)
 	{
 		const float currentTemp = dht.getTemperature();
-		root["temperature"] = currentTemp + temperatureOffset;
-		root["humidity"] = roundf(dht.getHumidity() + humidityOffset);
+		root["temperature"] = currentTemp + config.temperatureOffset;
+		root["humidity"] = roundf(dht.getHumidity() + config.humidityOffset);
 		root["pressure"] = "Not installed";
 		root["gas"] = "Not installed";
 
-		if (temperatureUnit == TemperatureUnit_Fahrenheit)
+		if (config.temperatureUnit == TemperatureUnit_Fahrenheit)
 		{
-			root["temperature"] = CelsiusToFahrenheit(currentTemp) + temperatureOffset;
+			root["temperature"] = CelsiusToFahrenheit(currentTemp) + config.temperatureOffset;
 		}
 	}
 	else if (tempSensor == TempSensor_BME680)
@@ -1497,13 +1034,13 @@ String GetSensor()
 			bme680->beginReading(); // start measurement process
 			// return previous values
 			const float currentTemp = bme680->temperature;
-			root["temperature"] = currentTemp + temperatureOffset;
-			root["humidity"] = bme680->humidity + humidityOffset;
-			root["pressure"] = (bme680->pressure / 100.0F) + pressureOffset;
-			root["gas"] = (bme680->gas_resistance / 1000.0F) + gasOffset;
-			if (temperatureUnit == TemperatureUnit_Fahrenheit)
+			root["temperature"] = currentTemp + config.temperatureOffset;
+			root["humidity"] = bme680->humidity + config.humidityOffset;
+			root["pressure"] = (bme680->pressure / 100.0F) + config.pressureOffset;
+			root["gas"] = (bme680->gas_resistance / 1000.0F) + config.gasOffset;
+			if (config.temperatureUnit == TemperatureUnit_Fahrenheit)
 			{
-				root["temperature"] = CelsiusToFahrenheit(currentTemp) + temperatureOffset;
+				root["temperature"] = CelsiusToFahrenheit(currentTemp) + config.temperatureOffset;
 			}
 		}
 
@@ -1516,13 +1053,13 @@ String GetSensor()
 			{
 				lastBME680read = millis();
 				const float currentTemp = bme680->temperature;
-				root["temperature"] = currentTemp + temperatureOffset;
-				root["humidity"] = bme680->humidity + humidityOffset;
-				root["pressure"] = (bme680->pressure / 100.0F) + pressureOffset;
-				root["gas"] = (bme680->gas_resistance / 1000.0F) + gasOffset;
-				if (temperatureUnit == TemperatureUnit_Fahrenheit)
+				root["temperature"] = currentTemp + config.temperatureOffset;
+				root["humidity"] = bme680->humidity + config.humidityOffset;
+				root["pressure"] = (bme680->pressure / 100.0F) + config.pressureOffset;
+				root["gas"] = (bme680->gas_resistance / 1000.0F) + config.gasOffset;
+				if (config.temperatureUnit == TemperatureUnit_Fahrenheit)
 				{
-					root["temperature"] = CelsiusToFahrenheit(currentTemp) + temperatureOffset;
+					root["temperature"] = CelsiusToFahrenheit(currentTemp) + config.temperatureOffset;
 				}
 			}
 			else
@@ -1537,15 +1074,15 @@ String GetSensor()
 	else if (tempSensor == TempSensor_BMP280)
 	{
 		const float currentTemp = bmp280->readTemperature();
-		root["temperature"] = currentTemp + temperatureOffset;
+		root["temperature"] = currentTemp + config.temperatureOffset;
 		// root["humidity"] = bmp280->readHumidity() + humidityOffset;
 		root["humidity"] = "Not installed";
-		root["pressure"] = (bmp280->readPressure() / 100.0F) + pressureOffset;
+		root["pressure"] = (bmp280->readPressure() / 100.0F) + config.pressureOffset;
 		root["gas"] = "Not installed";
 
-		if (temperatureUnit == TemperatureUnit_Fahrenheit)
+		if (config.temperatureUnit == TemperatureUnit_Fahrenheit)
 		{
-			root["temperature"] = CelsiusToFahrenheit(currentTemp) + temperatureOffset;
+			root["temperature"] = CelsiusToFahrenheit(currentTemp) + config.temperatureOffset;
 		}
 	}
 
@@ -1583,8 +1120,8 @@ String GetBrightness()
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject &root = jsonBuffer.createObject();
 
-	root["brightness_255"] = currentMatrixBrightness;
-	root["brightness"] = map(currentMatrixBrightness, 0, 255, 0, 100);
+	root["brightness_255"] = config.matrixBrightness;
+	root["brightness"] = map(config.matrixBrightness, 0, 255, 0, 100);
 
 	String json;
 	root.printTo(json);
@@ -1599,8 +1136,8 @@ String GetMatrixInfo()
 
 	root["pixelitVersion"] = VERSION;
 	//// Matrix Config
-	root["note"] = note;
-	root["hostname"] = hostname;
+	root["note"] = config.note;
+	root["hostname"] = config.hostname;
 	root["freeSketchSpace"] = ESP.getFreeSketchSpace();
 	root["wifiRSSI"] = WiFi.RSSI();
 	root["wifiQuality"] = GetRSSIasQuality(WiFi.RSSI());
@@ -1616,7 +1153,7 @@ String GetMatrixInfo()
 #endif
 
 	root["cpuFreqMHz"] = ESP.getCpuFreqMHz();
-	root["sleepMode"] = sleepMode;
+	root["sleepMode"] = config.sleepMode;
 
 	String json;
 	root.printTo(json);
@@ -1723,16 +1260,16 @@ void DrawTextHelper(String text, bool bigFont, bool centerText, bool scrollText,
 	if (scrollText || (autoScrollText && xPixelText > xPixel))
 	{
 
-		matrix->setBrightness(currentMatrixBrightness);
+		matrix->setBrightness(config.matrixBrightness);
 
-		scrollTextString = text;
-		scrollposY = posY;
-		scrollwithBMP = withBMP;
-		scrollxPixelText = xPixelText;
+		config.scrollTextString = text;
+		config.scrollposY = posY;
+		config.scrollwithBMP = withBMP;
+		config.scrollxPixelText = xPixelText;
 		// + 8 Pixel sonst scrollt er mitten drinn los!
-		scrollPos = 33;
+		config.scrollPos = 33;
 
-		scrollTextAktivLoop = true;
+		config.scrollTextAktivLoop = true;
 		scrollTextPrevMillis = millis();
 		ScrollText(fadeInRequired);
 	}
@@ -1763,26 +1300,26 @@ void ScrollText(bool isFadeInRequired)
 {
 	int tempxPixelText = 0;
 
-	if (scrollxPixelText < 32 && !scrollwithBMP)
+	if (config.scrollxPixelText < 32 && !config.scrollwithBMP)
 	{
-		scrollxPixelText = 32;
+		config.scrollxPixelText = 32;
 	}
-	else if (scrollxPixelText < 24 && scrollwithBMP)
+	else if (config.scrollxPixelText < 24 && config.scrollwithBMP)
 	{
-		scrollxPixelText = 24;
+		config.scrollxPixelText = 24;
 	}
-	else if (scrollwithBMP)
+	else if (config.scrollwithBMP)
 	{
 		tempxPixelText = 8;
 	}
 
-	if (scrollPos > ((scrollxPixelText - tempxPixelText) * -1))
+	if (config.scrollPos > ((config.scrollxPixelText - tempxPixelText) * -1))
 	{
 		matrix->clear();
-		matrix->setCursor(--scrollPos, scrollposY);
-		matrix->print(scrollTextString);
+		matrix->setCursor(--config.scrollPos, config.scrollposY);
+		matrix->print(config.scrollTextString);
 
-		if (scrollwithBMP)
+		if (config.scrollwithBMP)
 		{
 			matrix->drawRGBBitmap(0, 0, bmpArray, 8, 8);
 		}
@@ -1799,7 +1336,7 @@ void ScrollText(bool isFadeInRequired)
 	else
 	{
 		// + 8 Pixel sonst scrollt er mitten drinn los!
-		scrollPos = 33;
+		config.scrollPos = 33;
 	}
 }
 
@@ -1913,7 +1450,7 @@ void DrawClock(bool fromJSON)
 
 	int xPosTime = 0;
 
-	if (clockDateDayMonth)
+	if (config.clockDateDayMonth)
 	{
 		sprintf_P(date, PSTR("%02d.%02d."), day(), month());
 	}
@@ -1922,23 +1459,23 @@ void DrawClock(bool fromJSON)
 		sprintf_P(date, PSTR("%02d/%02d"), month(), day());
 	}
 
-	if (clock24Hours && clockWithSeconds)
+	if (config.clock24Hours && config.clockWithSeconds)
 	{
 		xPosTime = 2;
 		sprintf_P(time, PSTR("%02d:%02d:%02d"), hour(), minute(), second());
 	}
-	else if (!clock24Hours)
+	else if (!config.clock24Hours)
 	{
 		xPosTime = 2;
 
-		if (clockBlink)
+		if (config.clockBlink)
 		{
-			clockBlink = false;
+			config.clockBlink = false;
 			sprintf_P(time, PSTR("%02d:%02d %s"), hourFormat12(), minute(), isAM() ? "AM" : "PM");
 		}
 		else
 		{
-			clockBlink = !clockBlink;
+			config.clockBlink = !config.clockBlink;
 			sprintf_P(time, PSTR("%02d %02d %s"), hourFormat12(), minute(), isAM() ? "AM" : "PM");
 		}
 	}
@@ -1946,36 +1483,36 @@ void DrawClock(bool fromJSON)
 	{
 		xPosTime = 7;
 
-		if (clockBlink)
+		if (config.clockBlink)
 		{
-			clockBlink = false;
+			config.clockBlink = false;
 			sprintf_P(time, PSTR("%02d:%02d"), hour(), minute());
 		}
 		else
 		{
-			clockBlink = !clockBlink;
+			config.clockBlink = !config.clockBlink;
 			sprintf_P(time, PSTR("%02d %02d"), hour(), minute());
 		}
 	}
 
-	if (!clockSwitchAktiv || (clockSwitchAktiv && clockCounterClock <= clockSwitchSec))
+	if (!config.clockSwitchAktiv || (config.clockSwitchAktiv && config.clockCounterClock <= config.clockSwitchSec))
 	{
-		if (clockSwitchAktiv)
+		if (config.clockSwitchAktiv)
 		{
-			clockCounterClock++;
+			config.clockCounterClock++;
 		}
 
-		if (clockCounterClock > clockSwitchSec)
+		if (config.clockCounterClock > config.clockSwitchSec)
 		{
-			clockCounterDate = 0;
+			config.clockCounterDate = 0;
 
 			int counter = 0;
 			while (counter <= 6)
 			{
 				counter++;
 				matrix->clear();
-				DrawText(String(time), false, clockColorR, clockColorG, clockColorB, xPosTime, (1 + counter));
-				DrawText(String(date), false, clockColorR, clockColorG, clockColorB, 7, (-6 + counter));
+				DrawText(String(time), false, config.clockColorR, config.clockColorG, config.clockColorB, xPosTime, (1 + counter));
+				DrawText(String(date), false, config.clockColorR, config.clockColorG, config.clockColorB, 7, (-6 + counter));
 				matrix->drawLine(0, 7, 33, 7, 0);
 				DrawWeekDay();
 				matrix->show();
@@ -1984,24 +1521,24 @@ void DrawClock(bool fromJSON)
 		}
 		else
 		{
-			DrawText(String(time), false, clockColorR, clockColorG, clockColorB, xPosTime, 1);
+			DrawText(String(time), false, config.clockColorR, config.clockColorG, config.clockColorB, xPosTime, 1);
 		}
 	}
 	else
 	{
-		clockCounterDate++;
+		config.clockCounterDate++;
 
-		if (clockCounterDate == clockSwitchSec)
+		if (config.clockCounterDate == config.clockSwitchSec)
 		{
-			clockCounterClock = 0;
+			config.clockCounterClock = 0;
 
 			int counter = 0;
 			while (counter <= 6)
 			{
 				counter++;
 				matrix->clear();
-				DrawText(String(date), false, clockColorR, clockColorG, clockColorB, 7, (1 + counter));
-				DrawText(String(time), false, clockColorR, clockColorG, clockColorB, xPosTime, (-6 + counter));
+				DrawText(String(date), false, config.clockColorR, config.clockColorG, config.clockColorB, 7, (1 + counter));
+				DrawText(String(time), false, config.clockColorR, config.clockColorG, config.clockColorB, xPosTime, (-6 + counter));
 				matrix->drawLine(0, 7, 33, 7, 0);
 				DrawWeekDay();
 				matrix->show();
@@ -2010,7 +1547,7 @@ void DrawClock(bool fromJSON)
 		}
 		else
 		{
-			DrawText(String(date), false, clockColorR, clockColorG, clockColorB, 7, 1);
+			DrawText(String(date), false, config.clockColorR, config.clockColorG, config.clockColorB, 7, 1);
 		}
 	}
 
@@ -2030,7 +1567,7 @@ void DrawWeekDay()
 	{
 		int weekDayNumber = 0;
 
-		if (clockDayOfWeekFirstMonday)
+		if (config.clockDayOfWeekFirstMonday)
 		{
 			weekDayNumber = DayOfWeekFirstMonday(dayOfWeek(now()));
 		}
@@ -2041,7 +1578,7 @@ void DrawWeekDay()
 
 		if (i == weekDayNumber - 1)
 		{
-			matrix->drawLine(2 + i * 4, 7, i * 4 + 4, 7, matrix->Color(clockColorR, clockColorG, clockColorB));
+			matrix->drawLine(2 + i * 4, 7, i * 4 + 4, 7, matrix->Color(config.clockColorR, config.clockColorG, config.clockColorB));
 		}
 		else
 		{
@@ -2057,12 +1594,12 @@ boolean MQTTreconnect()
 	if (mqttUser != NULL && mqttUser.length() > 0 && mqttPassword != NULL && mqttPassword.length() > 0)
 	{
 		Log(F("MQTTreconnect"), F("MQTT connecting to broker with user and password"));
-		connected = client.connect(hostname.c_str(), mqttUser.c_str(), mqttPassword.c_str(), (mqttMasterTopic + "state").c_str(), 0, true, "disconnected");
+		connected = client.connect(config.hostname.c_str(), mqttUser.c_str(), mqttPassword.c_str(), (mqttMasterTopic + "state").c_str(), 0, true, "disconnected");
 	}
 	else
 	{
 		Log(F("MQTTreconnect"), F("MQTT connecting to broker without user and password"));
-		connected = client.connect(hostname.c_str(), (mqttMasterTopic + "state").c_str(), 0, true, "disconnected");
+		connected = client.connect(config.hostname.c_str(), (mqttMasterTopic + "state").c_str(), 0, true, "disconnected");
 	}
 
 	if (connected)
@@ -2080,7 +1617,7 @@ boolean MQTTreconnect()
 		// ... and provide discovery information
 		// Create discovery information for Homeassistant
 		// Can also be processed by ioBroker, OpenHAB etc.
-		String deviceID = hostname;
+		String deviceID = config.hostname;
 		if (deviceID.isEmpty())
 			deviceID = "pixelit";
 #if defined(ESP8266)
@@ -2092,26 +1629,26 @@ boolean MQTTreconnect()
 		String configTopicTemplate = String(F("homeassistant/sensor/#DEVICEID#/#DEVICEID##SENSORNAME#/config"));
 		configTopicTemplate.replace(F("#DEVICEID#"), deviceID);
 		String configPayloadTemplate = String(F(
-			"{"
-			"\"device\":{"
-			"\"identifiers\":\"#DEVICEID#\","
-			"\"name\":\"#HOSTNAME#\","
-			"\"model\":\"PixelIt\","
-			"\"sw_version\":\"#VERSION#\""
-			"},"
-			"\"availability_topic\":\"#MASTERTOPIC#state\","
-			"\"payload_available\":\"connected\","
-			"\"payload_not_available\":\"disconnected\","
-			"\"unique_id\":\"#DEVICEID##SENSORNAME#\","
-			"\"device_class\":\"#CLASS#\","
-			"\"name\":\"#SENSORNAME#\","
-			"\"state_topic\":\"#MASTERTOPIC##STATETOPIC#\","
-			"\"unit_of_measurement\":\"#UNIT#\","
-			"\"value_template\":\"{{value_json.#VALUENAME#}}\""
-			"}"));
+			"{ \
+    		\"device\":{ \
+        		\"identifiers\":\"#DEVICEID#\", \
+        		\"name\":\"#config.HOSTNAME#\", \
+        		\"model\":\"PixelIt\", \
+        		\"sw_version\":\"#VERSION#\" \
+        	}, \
+			\"availability_topic\":\"#MASTERTOPIC#state\", \
+			\"payload_available\":\"connected\", \
+			\"payload_not_available\":\"disconnected\", \
+			\"unique_id\":\"#DEVICEID##SENSORNAME#\", \
+			\"device_class\":\"#CLASS#\", \
+			\"name\":\"#SENSORNAME#\", \
+			\"state_topic\":\"#MASTERTOPIC##STATETOPIC#\", \
+			\"unit_of_measurement\":\"#UNIT#\", \
+			\"value_template\":\"{{value_json.#VALUENAME#}}\" \
+		}"));
 		configPayloadTemplate.replace(" ", "");
 		configPayloadTemplate.replace(F("#DEVICEID#"), deviceID);
-		configPayloadTemplate.replace(F("#HOSTNAME#"), hostname);
+		configPayloadTemplate.replace(F("#config.HOSTNAME#"), config.hostname);
 		configPayloadTemplate.replace(F("#VERSION#"), VERSION);
 		configPayloadTemplate.replace(F("#MASTERTOPIC#"), mqttMasterTopic);
 
@@ -2181,30 +1718,31 @@ boolean MQTTreconnect()
 		client.publish(topic.c_str(), payload.c_str(), true);
 
 		configPayloadTemplate = String(F(
-			"{"
-			"\"device\":{"
-			"\"identifiers\":\"#DEVICEID#\","
-			"\"name\":\"#HOSTNAME#\","
-			"\"model\":\"PixelIt\","
-			"\"sw_version\":\"#VERSION#\""
-			","
-			"\"availability_topic\":\"#MASTERTOPIC#state\","
-			"\"payload_available\":\"connected\","
-			"\"payload_not_available\":\"disconnected\","
-			"\"unique_id\":\"#DEVICEID##SENSORNAME#\","
-			"\"device_class\":\"timestamp\","
-			"\"name\":\"#SENSORNAME#\","
-			"\"state_topic\":\"#MASTERTOPIC##STATETOPIC#\""
-			"}"));
+			"{ \
+    		\"device\":{ \
+        		\"identifiers\":\"#DEVICEID#\", \
+        		\"name\":\"#config.HOSTNAME#\", \
+        		\"model\":\"PixelIt\", \
+        		\"sw_version\":\"#VERSION#\" \
+        	}, \
+			\"availability_topic\":\"#MASTERTOPIC#state\", \
+			\"payload_available\":\"connected\", \
+			\"payload_not_available\":\"disconnected\", \
+			\"unique_id\":\"#DEVICEID##SENSORNAME#\", \
+			\"device_class\":\"timestamp\", \
+			\"name\":\"#SENSORNAME#\", \
+			\"state_topic\":\"#MASTERTOPIC##STATETOPIC#\" \
+		}"));
+
 		configPayloadTemplate.replace(" ", "");
 		configPayloadTemplate.replace(F("#DEVICEID#"), deviceID);
-		configPayloadTemplate.replace(F("#HOSTNAME#"), hostname);
+		configPayloadTemplate.replace(F("#config.HOSTNAME#"), config.hostname);
 		configPayloadTemplate.replace(F("#VERSION#"), VERSION);
 		configPayloadTemplate.replace(F("#MASTERTOPIC#"), mqttMasterTopic);
 
-		for (uint8_t n = 0; n < sizeof(btnEnabled) / sizeof(btnEnabled[0]); n++)
+		for (uint8_t n = 0; n < sizeof(config.btnEnabled) / sizeof(config.btnEnabled[0]); n++)
 		{
-			if (btnEnabled[n])
+			if (config.btnEnabled[n])
 			{
 				topic = configTopicTemplate;
 				topic.replace(F("#SENSORNAME#"), String(F("Button")) + String(n));
@@ -2230,12 +1768,12 @@ boolean MQTTreconnect()
 
 void FadeOut(int dealy, int minBrightness)
 {
-	int currentFadeBrightness = currentMatrixBrightness;
+	int currentFadeBrightness = config.matrixBrightness;
 
 	int counter = 25;
 	while (counter >= 0)
 	{
-		currentFadeBrightness = map(counter, 0, 25, minBrightness, currentMatrixBrightness);
+		currentFadeBrightness = map(counter, 0, 25, minBrightness, config.matrixBrightness);
 		matrix->setBrightness(currentFadeBrightness);
 		matrix->show();
 		counter--;
@@ -2250,7 +1788,7 @@ void FadeIn(int dealy, int minBrightness)
 	int counter = 0;
 	while (counter <= 25)
 	{
-		currentFadeBrightness = map(counter, 0, 25, minBrightness, currentMatrixBrightness);
+		currentFadeBrightness = map(counter, 0, 25, minBrightness, config.matrixBrightness);
 		matrix->setBrightness(currentFadeBrightness);
 		matrix->show();
 		counter++;
@@ -2374,85 +1912,85 @@ void ShowBootAnimation()
 
 ColorTemperature GetUserColorTemp()
 {
-	if (matrixTempCorrection == "tungsten40w")
+	if (config.matrixTempCorrection == "tungsten40w")
 	{
 		return Tungsten40W;
 	}
 
-	if (matrixTempCorrection == "tungsten100w")
+	if (config.matrixTempCorrection == "tungsten100w")
 	{
 		return Tungsten100W;
 	}
 
-	if (matrixTempCorrection == "halogen")
+	if (config.matrixTempCorrection == "halogen")
 	{
 		return Halogen;
 	}
 
-	if (matrixTempCorrection == "carbonarc")
+	if (config.matrixTempCorrection == "carbonarc")
 	{
 		return CarbonArc;
 	}
 
-	if (matrixTempCorrection == "highnoonsun")
+	if (config.matrixTempCorrection == "highnoonsun")
 	{
 		return HighNoonSun;
 	}
 
-	if (matrixTempCorrection == "directsunlight")
+	if (config.matrixTempCorrection == "directsunlight")
 	{
 		return DirectSunlight;
 	}
 
-	if (matrixTempCorrection == "overcastsky")
+	if (config.matrixTempCorrection == "overcastsky")
 	{
 		return OvercastSky;
 	}
 
-	if (matrixTempCorrection == "clearbluesky")
+	if (config.matrixTempCorrection == "clearbluesky")
 	{
 		return ClearBlueSky;
 	}
 
-	if (matrixTempCorrection == "warmfluorescent")
+	if (config.matrixTempCorrection == "warmfluorescent")
 	{
 		return WarmFluorescent;
 	}
 
-	if (matrixTempCorrection == "standardfluorescent")
+	if (config.matrixTempCorrection == "standardfluorescent")
 	{
 		return StandardFluorescent;
 	}
 
-	if (matrixTempCorrection == "coolwhitefluorescent")
+	if (config.matrixTempCorrection == "coolwhitefluorescent")
 	{
 		return CoolWhiteFluorescent;
 	}
-	if (matrixTempCorrection == "fullspectrumfluorescent")
+	if (config.matrixTempCorrection == "fullspectrumfluorescent")
 	{
 		return FullSpectrumFluorescent;
 	}
-	if (matrixTempCorrection == "growlightfluorescent")
+	if (config.matrixTempCorrection == "growlightfluorescent")
 	{
 		return GrowLightFluorescent;
 	}
-	if (matrixTempCorrection == "blacklightfluorescent")
+	if (config.matrixTempCorrection == "blacklightfluorescent")
 	{
 		return BlackLightFluorescent;
 	}
-	if (matrixTempCorrection == "mercuryvapor")
+	if (config.matrixTempCorrection == "mercuryvapor")
 	{
 		return MercuryVapor;
 	}
-	if (matrixTempCorrection == "sodiumvapor")
+	if (config.matrixTempCorrection == "sodiumvapor")
 	{
 		return SodiumVapor;
 	}
-	if (matrixTempCorrection == "metalhalide")
+	if (config.matrixTempCorrection == "metalhalide")
 	{
 		return MetalHalide;
 	}
-	if (matrixTempCorrection == "highpressuresodium")
+	if (config.matrixTempCorrection == "highpressuresodium")
 	{
 		return HighPressureSodium;
 	}
@@ -2462,17 +2000,17 @@ ColorTemperature GetUserColorTemp()
 
 LEDColorCorrection GetUserColorCorrection()
 {
-	if (matrixTempCorrection == "default")
+	if (config.matrixTempCorrection == "default")
 	{
 		return TypicalSMD5050;
 	}
 
-	if (matrixTempCorrection == "typicalsmd5050")
+	if (config.matrixTempCorrection == "typicalsmd5050")
 	{
 		return TypicalSMD5050;
 	}
 
-	if (matrixTempCorrection == "typical8mmpixel")
+	if (config.matrixTempCorrection == "typical8mmpixel")
 	{
 		return Typical8mmPixel;
 	}
@@ -2482,7 +2020,7 @@ LEDColorCorrection GetUserColorCorrection()
 
 int *GetUserCutomCorrection()
 {
-	String rgbString = matrixTempCorrection;
+	String rgbString = config.matrixTempCorrection;
 	rgbString.trim();
 
 	// R,G,B / 255,255,255
@@ -2601,13 +2139,15 @@ void setup()
 #endif
 	{
 		Serial.println(F("Mounted file system."));
-		LoadConfig();
+		config.SetLogDelegate(Log);
+		config.SetBrightnessDelegate(SetCurrentMatrixBrightness);
+		config.LoadConfig();
 		// If new version detected, create new variables in config if necessary.
-		if (optionsVersion != VERSION)
+		if (config.optionsVersion != VERSION)
 		{
 			Log(F("LoadConfig"), F("New version detected, create new variables in config if necessary"));
-			SaveConfig();
-			LoadConfig();
+			config.SaveConfig();
+			config.LoadConfig();
 		}
 	}
 	else
@@ -2623,7 +2163,7 @@ void setup()
 	}
 
 	// I2C Sensors
-	twowire.begin(TranslatePin(SDAPin), TranslatePin(SCLPin));
+	twowire.begin(TranslatePin(config.SDAPin), TranslatePin(config.SCLPin));
 
 	// Init LightSensor
 	bh1750 = new BH1750();
@@ -2645,7 +2185,7 @@ void setup()
 		else
 		{
 			delete max44009;
-			photocell = new LightDependentResistor(LDR_PIN, ldrPulldown, TranslatePhotocell(ldrDevice), 10, ldrSmoothing);
+			photocell = new LightDependentResistor(LDR_PIN, config.ldrPulldown, TranslatePhotocell(config.ldrDevice), 10, config.ldrSmoothing);
 			photocell->setPhotocellPositionOnGround(false);
 			luxSensor = LuxSensor_LDR;
 		}
@@ -2682,7 +2222,7 @@ void setup()
 				delete bme680;
 				// AM2320 needs a delay to be reliably initialized
 				delay(800);
-				dht.setup(TranslatePin(onewirePin), DHTesp::DHT22);
+				dht.setup(TranslatePin(config.onewirePin), DHTesp::DHT22);
 				if (!isnan(dht.getHumidity()) && !isnan(dht.getTemperature()))
 				{
 					Log(F("Setup"), F("DHT started"));
@@ -2697,17 +2237,17 @@ void setup()
 	}
 
 	// Matix Type 1 (Colum major)
-	if (matrixType == 1)
+	if (config.matrixType == 1)
 	{
 		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 	}
 	// Matix Type 2 (Row major)
-	else if (matrixType == 2)
+	else if (config.matrixType == 2)
 	{
 		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
 	}
 	// Matix Type 3 (Tiled 4x 8x8 CJMCU)
-	else if (matrixType == 3)
+	else if (config.matrixType == 3)
 	{
 		matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_BOTTOM + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_PROGRESSIVE);
 	}
@@ -2732,21 +2272,21 @@ void setup()
 
 	matrix->begin();
 	matrix->setTextWrap(false);
-	matrix->setBrightness(currentMatrixBrightness);
+	matrix->setBrightness(config.matrixBrightness);
 	matrix->clear();
 
 	// Bootscreen
-	if (bootScreenAktiv)
+	if (config.bootScreenAktiv)
 	{
 		ShowBootAnimation();
 	}
 
-	// Hostname
-	if (hostname.isEmpty())
+	// config.Hostname
+	if (config.hostname.isEmpty())
 	{
-		hostname = "PixelIt";
+		config.hostname = "PixelIt";
 	}
-	WiFi.hostname(hostname);
+	WiFi.hostname(config.hostname);
 
 	wifiManager.setAPCallback(EnteredHotspotCallback);
 	wifiManager.setMinimumSignalQuality();
@@ -2803,7 +2343,7 @@ void setup()
 		Log(F("Setup"), F("MQTT started"));
 	}
 
-	softSerial = new SoftwareSerial(TranslatePin(dfpRXPin), TranslatePin(dfpTXPin));
+	softSerial = new SoftwareSerial(TranslatePin(config.dfpRXPin), TranslatePin(config.dfpTXPin));
 
 	softSerial->begin(9600);
 	Log(F("Setup"), F("Software Serial started"));
@@ -2859,13 +2399,13 @@ void loop()
 	// Check buttons
 	for (uint b = 0; b < 3; b++)
 	{
-		if (btnEnabled[b])
+		if (config.btnEnabled[b])
 		{
-			if ((btnState[b] == btnState_Released) && (digitalRead(TranslatePin(btnPin[b])) == btnPressedLevel[b]))
+			if ((btnState[b] == btnState_Released) && (digitalRead(TranslatePin(config.btnPin[b])) == config.btnPressedLevel[b]))
 			{
 				btnState[b] = btnState_PressedNew;
 			}
-			if ((btnState[b] == btnState_PressedBefore) && (digitalRead(TranslatePin(btnPin[b])) != btnPressedLevel[b]))
+			if ((btnState[b] == btnState_PressedBefore) && (digitalRead(TranslatePin(config.btnPin[b])) != config.btnPressedLevel[b]))
 			{
 				btnState[b] = btnState_Released;
 			}
@@ -2878,20 +2418,20 @@ void loop()
 	}
 
 	// Clock Auto Fallback
-	if (!sleepMode && ((clockAutoFallbackActive && !clockAktiv && millis() - lastScreenMessageMillis >= (clockAutoFallbackTime * 1000)) || forceClock))
+	if (!config.sleepMode && ((config.clockAutoFallbackActive && !config.clockAktiv && millis() - lastScreenMessageMillis >= (config.clockAutoFallbackTime * 1000)) || config.forceClock))
 	{
-		forceClock = false;
-		scrollTextAktivLoop = false;
+		config.forceClock = false;
+		config.scrollTextAktivLoop = false;
 		animateBMPAktivLoop = false;
 
 		int performWipe = 0;
 
-		switch (clockAutoFallbackAnimation)
+		switch (config.clockAutoFallbackAnimation)
 		{
 		case 1:
 		case 2:
 		case 3:
-			performWipe = clockAutoFallbackAnimation;
+			performWipe = config.clockAutoFallbackAnimation;
 			break;
 		case 4:
 			performWipe = (millis() % 3) + 1;
@@ -2909,11 +2449,11 @@ void loop()
 		}
 		else if (performWipe == 3)
 		{
-			ZigZagWipe(clockColorR, clockColorG, clockColorB);
+			ZigZagWipe(config.clockColorR, config.clockColorG, config.clockColorB);
 		}
-		clockAktiv = true;
-		clockCounterClock = 0;
-		clockCounterDate = 0;
+		config.clockAktiv = true;
+		config.clockCounterClock = 0;
+		config.clockCounterDate = 0;
 		DrawClock(true);
 
 		if (performWipe != 0)
@@ -2922,7 +2462,7 @@ void loop()
 		}
 	}
 
-	if (clockAktiv && now() != clockLastUpdate)
+	if (config.clockAktiv && now() != clockLastUpdate)
 	{
 		if (timeStatus() == timeNotSet && ntpTimeOut <= millis())
 		{
@@ -2934,7 +2474,7 @@ void loop()
 			}
 			else
 			{
-				Log(F("Sync TimeServer"), ntpServer + " waiting for sync");
+				Log(F("Sync TimeServer"), config.ntpServer + " waiting for sync");
 				setSyncProvider(getNtpTime);
 			}
 		}
@@ -2948,22 +2488,22 @@ void loop()
 
 		if (luxSensor == LuxSensor_BH1750)
 		{
-			currentLux = bh1750->readLightLevel() + luxOffset;
+			currentLux = bh1750->readLightLevel() + config.luxOffset;
 		}
 		else if (luxSensor == LuxSensor_Max44009)
 		{
-			currentLux = max44009->getLux() + luxOffset;
+			currentLux = max44009->getLux() + config.luxOffset;
 		}
 		else
 		{
-			currentLux = (roundf(photocell->getSmoothedLux() * 1000) / 1000) + luxOffset;
+			currentLux = (roundf(photocell->getSmoothedLux() * 1000) / 1000) + config.luxOffset;
 		}
 
 		SendLDR(false);
 
-		if (!sleepMode && matrixBrightnessAutomatic)
+		if (!config.sleepMode && config.matrixBrightnessAutomatic)
 		{
-			float newBrightness = map(currentLux, mbaLuxMin, mbaLuxMax, mbaDimMin, mbaDimMax);
+			float newBrightness = map(currentLux, config.mbaLuxMin, config.mbaLuxMax, config.mbaDimMin, config.mbaDimMax);
 			// Max brightness 255
 			if (newBrightness > 255)
 			{
@@ -2975,10 +2515,10 @@ void loop()
 				newBrightness = 0;
 			}
 
-			if (newBrightness != currentMatrixBrightness)
+			if (newBrightness != config.matrixBrightness)
 			{
 				SetCurrentMatrixBrightness(newBrightness);
-				Log(F("Auto Brightness"), "Lux: " + String(currentLux) + " set brightness to " + String(currentMatrixBrightness));
+				Log(F("Auto Brightness"), "Lux: " + String(currentLux) + " set brightness to " + String(config.matrixBrightness));
 			}
 		}
 	}
@@ -3002,7 +2542,7 @@ void loop()
 		AnimateBMP(true);
 	}
 
-	if (scrollTextAktivLoop && millis() - scrollTextPrevMillis >= scrollTextDelay)
+	if (config.scrollTextAktivLoop && millis() - scrollTextPrevMillis >= config.scrollTextDelay)
 	{
 		scrollTextPrevMillis = millis();
 		ScrollText(false);
@@ -3124,7 +2664,7 @@ time_t getNtpTime()
 {
 	while (udp.parsePacket() > 0)
 		;
-	sendNTPpacket(ntpServer);
+	sendNTPpacket(config.ntpServer);
 	uint32_t beginWait = millis();
 	while (millis() - beginWait < 1500)
 	{
@@ -3139,10 +2679,10 @@ time_t getNtpTime()
 			secsSince1900 |= (time_t)packetBuffer[42] << 8;
 			secsSince1900 |= (time_t)packetBuffer[43];
 			time_t secsSince1970 = secsSince1900 - 2208988800UL;
-			float totalOffset = clockTimeZone;
-			if (clockDayLightSaving)
+			float totalOffset = config.clockTimeZone;
+			if (config.clockDayLightSaving)
 			{
-				totalOffset = (clockTimeZone + DSToffset(secsSince1970, clockTimeZone));
+				totalOffset = (config.clockTimeZone + DSToffset(secsSince1970, config.clockTimeZone));
 			}
 			return secsSince1970 + (time_t)(totalOffset * SECS_PER_HOUR);
 			ntpRetryCounter = 0;
