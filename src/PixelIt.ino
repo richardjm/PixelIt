@@ -2032,6 +2032,18 @@ void setup()
               { request->send(200, "application/json", GetConfig()); });
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(200, F("text/html"), mainPage); });
+
+    // Just testing I can serve the non-working files from littlefs
+    server.on("/littlefs", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(LittleFS, "/index.html", String(), false);
+    });
+    server.on("/littlefs/assets/index.63517168.js", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(LittleFS, "/assets/index.63517168.js", String(), false);
+    });
+    server.on("/littlefs/assets/index.c4033380.css", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(LittleFS, "/assets/index.c4033380.css", String(), false);
+    });
+
     server.onNotFound(HandleNotFound);
 
     server.begin();
