@@ -1,24 +1,17 @@
 <template>
-    <v-list>
-        <v-list-item v-for="item in items" :key="item.title" link :to="item.page" :href="item.url" :target="item.target">
-            <v-list-item-icon>
-                <v-icon>{{ item.icon }}</v-icon>
-            </v-list-item-icon>
-
-            <v-list-item-content>
-                <v-list-item-title>{{ item.title }}</v-list-item-title>
-            </v-list-item-content>
-        </v-list-item>
-    </v-list>
+    <nav>
+        <div v-for="item in items" :key="item.title">
+            <router-link :to="item.page" v-if="item.page">{{ item.title }}</router-link>
+            <a :href="item.url" v-if="item.url">{{ item.title }}</a>
+        </div>
+    </nav>
 </template>
 
-<script>
-export default {
-    props: {
-        items: {
+<script setup>
+    const props = defineProps({
+         items: {
             type: Array,
             required: true,
         },
-    },
-};
+    })
 </script>
