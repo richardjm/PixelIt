@@ -1,24 +1,22 @@
 #include <ArduinoJson.h>
 
-void BuildUpdateScreenJSON(JsonObject &root)
+void BuildUpdateScreenJSON(JsonDocument doc)
 {
-
-    JsonObject &text = root.createNestedObject("text");
+    JsonObject text = doc["text"].add<JsonObject>();
     text["textString"] = "New FW available";
     text["hexColor"] = "#FFFFFF";
     text["scrollText"] = true;
+    
+    JsonObject position = text["position"].add<JsonObject>();
+    position["x"] = 7;
+    position["y"] = 1;
 
-    JsonObject &text_position = text.createNestedObject("position");
-    text_position["x"] = 7;
-    text_position["y"] = 1;
-
-    JsonObject &bitmapAnimation = root.createNestedObject("bitmapAnimation");
+    JsonObject bitmapAnimation = doc["bitmapAnimation"].add<JsonObject>();
     bitmapAnimation["animationDelay"] = 400;
     bitmapAnimation["limitLoops"] = 0;
 
-    JsonArray &bitmapAnimation_data = bitmapAnimation.createNestedArray("data");
-
-    JsonArray &bitmapAnimation_data_0 = bitmapAnimation_data.createNestedArray();
+    JsonArray bitmapAnimation_data = bitmapAnimation["data"].to<JsonArray>();
+    JsonArray bitmapAnimation_data_0 = bitmapAnimation_data.add<JsonVariant>().to<JsonArray>();
     bitmapAnimation_data_0.add(0);
     bitmapAnimation_data_0.add(0);
     bitmapAnimation_data_0.add(0);
@@ -84,7 +82,7 @@ void BuildUpdateScreenJSON(JsonObject &root)
     bitmapAnimation_data_0.add(0);
     bitmapAnimation_data_0.add(0);
 
-    JsonArray &bitmapAnimation_data_1 = bitmapAnimation_data.createNestedArray();
+    JsonArray bitmapAnimation_data_1 = bitmapAnimation_data.add<JsonVariant>().to<JsonArray>();
     bitmapAnimation_data_1.add(0);
     bitmapAnimation_data_1.add(0);
     bitmapAnimation_data_1.add(0);
@@ -150,7 +148,7 @@ void BuildUpdateScreenJSON(JsonObject &root)
     bitmapAnimation_data_1.add(63488);
     bitmapAnimation_data_1.add(0);
 
-    JsonArray &bitmapAnimation_data_2 = bitmapAnimation_data.createNestedArray();
+    JsonArray bitmapAnimation_data_2 = bitmapAnimation_data.add<JsonVariant>().to<JsonArray>();
     bitmapAnimation_data_2.add(0);
     bitmapAnimation_data_2.add(0);
     bitmapAnimation_data_2.add(0);
@@ -216,7 +214,7 @@ void BuildUpdateScreenJSON(JsonObject &root)
     bitmapAnimation_data_2.add(0);
     bitmapAnimation_data_2.add(0);
 
-    JsonArray &bitmapAnimation_data_3 = bitmapAnimation_data.createNestedArray();
+    JsonArray bitmapAnimation_data_3 = bitmapAnimation_data.add<JsonVariant>().to<JsonArray>();
     bitmapAnimation_data_3.add(0);
     bitmapAnimation_data_3.add(0);
     bitmapAnimation_data_3.add(0);
@@ -282,7 +280,7 @@ void BuildUpdateScreenJSON(JsonObject &root)
     bitmapAnimation_data_3.add(0);
     bitmapAnimation_data_3.add(0);
 
-    JsonArray &bitmapAnimation_data_4 = bitmapAnimation_data.createNestedArray();
+    JsonArray bitmapAnimation_data_4 = bitmapAnimation_data.add<JsonVariant>().to<JsonArray>();
     bitmapAnimation_data_4.add(0);
     bitmapAnimation_data_4.add(0);
     bitmapAnimation_data_4.add(63517);
@@ -348,7 +346,7 @@ void BuildUpdateScreenJSON(JsonObject &root)
     bitmapAnimation_data_4.add(0);
     bitmapAnimation_data_4.add(0);
 
-    JsonArray &bitmapAnimation_data_5 = bitmapAnimation_data.createNestedArray();
+    JsonArray bitmapAnimation_data_5 = bitmapAnimation_data.add<JsonVariant>().to<JsonArray>();
     bitmapAnimation_data_5.add(0);
     bitmapAnimation_data_5.add(0);
     bitmapAnimation_data_5.add(0);
@@ -414,7 +412,7 @@ void BuildUpdateScreenJSON(JsonObject &root)
     bitmapAnimation_data_5.add(0);
     bitmapAnimation_data_5.add(0);
 
-    JsonArray &bitmapAnimation_data_6 = bitmapAnimation_data.createNestedArray();
+    JsonArray bitmapAnimation_data_6 = bitmapAnimation_data.add<JsonVariant>().to<JsonArray>();
     bitmapAnimation_data_6.add(0);
     bitmapAnimation_data_6.add(0);
     bitmapAnimation_data_6.add(0);
