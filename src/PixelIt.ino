@@ -322,6 +322,139 @@ String OldGetMP3PlayerInfo;
 // Websoket Vars
 String websocketConnection[10];
 
+bool TryReadBitmapLayout(JsonObject json, int16_t &x, int16_t &y, int16_t &w, int16_t &h)
+{
+    x = 0;
+    y = 0;
+    w = 8;
+    h = 8;
+
+    if (json["l"].is<JsonArray>())
+    {
+        JsonArray layout = json["l"].as<JsonArray>();
+        if (layout.size() != 2 && layout.size() != 4)
+        {
+            return false;
+        }
+
+        x = layout[0].as<int16_t>();
+        y = layout[1].as<int16_t>();
+
+        if (layout.size() == 4)
+        {
+            w = layout[2].as<int16_t>();
+            h = layout[3].as<int16_t>();
+        }
+
+        return w > 0 && h > 0;
+    }
+
+    if (json["position"]["x"].is<int16_t>() && json["position"]["y"].is<int16_t>())
+    {
+        x = json["position"]["x"];
+        y = json["position"]["y"];
+    }
+    if (json["size"]["width"].is<int16_t>() && json["size"]["height"].is<int16_t>())
+    {
+        w = json["size"]["width"];
+        h = json["size"]["height"];
+    }
+
+    return w > 0 && h > 0;
+}
+
+bool TryReadPalette(JsonVariant input, uint16_t *palette, uint16_t maxEntries, uint16_t &paletteSize)
+{
+    paletteSize = 0;
+
+    if (input.is<JsonArray>())
+    {
+        for (JsonVariant c : input.as<JsonArray>())
+        {
+            if (paletteSize >= maxEntries)
+            {
+                break;
+            }
+            palette[paletteSize++] = c.as<uint16_t>();
+        }
+        return true;
+    }
+
+    return false;
+}
+
+bool TryReadRunValues(JsonVariant input, bool hasPalette, uint16_t *values, uint16_t maxValues, uint16_t &valueCount)
+{
+    (void)hasPalette;
+    valueCount = 0;
+
+    if (input.is<JsonArray>())
+    {
+        for (JsonVariant value : input.as<JsonArray>())
+        {
+            if (valueCount >= maxValues)
+            {
+                break;
+            }
+            values[valueCount++] = value.as<uint16_t>();
+        }
+        return true;
+    }
+
+    return false;
+}
+
+bool TryReadRunCounts(JsonVariant input, uint16_t *counts, uint16_t maxCounts, uint16_t &countSize)
+{
+    countSize = 0;
+
+    if (input.is<JsonArray>())
+    {
+        for (JsonVariant count : input.as<JsonArray>())
+        {
+            if (countSize >= maxCounts)
+            {
+                break;
+            }
+            counts[countSize++] = count.as<uint16_t>();
+        }
+        return true;
+    }
+
+    return false;
+}
+
+bool DecodeRLEFrame(JsonVariant colorsInput, JsonVariant countsInput, bool hasPalette, const uint16_t *palette, uint16_t paletteSize, uint16_t *output, uint16_t pixelCount)
+{
+    uint16_t values[64] = {};
+    uint16_t counts[64] = {};
+    uint16_t valueCount = 0;
+    uint16_t countSize = 0;
+
+    if (!TryReadRunValues(colorsInput, hasPalette, values, 64, valueCount) || !TryReadRunCounts(countsInput, counts, 64, countSize))
+    {
+        return false;
+    }
+
+    uint16_t runCount = valueCount < countSize ? valueCount : countSize;
+    uint16_t pixel = 0;
+    for (uint16_t i = 0; i < runCount && pixel < pixelCount; i++)
+    {
+        uint16_t color = values[i];
+        if (hasPalette)
+        {
+            color = values[i] < paletteSize ? palette[values[i]] : 0;
+        }
+
+        for (uint16_t n = 0; n < counts[i] && pixel < pixelCount; n++)
+        {
+            output[pixel++] = color;
+        }
+    }
+
+    return pixel == pixelCount;
+}
+
 String ResetReason()
 {
 #if defined(ESP8266)
@@ -1659,19 +1792,23 @@ void CreateFrames(JsonDocument doc, int forceDuration)
         if (doc["bitmapAnimation"].is<JsonObject>())
         {
             JsonObject bitmapAnimation = doc["bitmapAnimation"];
-            bmpPosX = 0;
-            bmpPosY = 0;
-            bmpWidth = 8;
-            bmpHeight = 8;
-            if (bitmapAnimation["position"]["x"].is<int16_t>() && bitmapAnimation["position"]["y"].is<int16_t>())
+            int16_t animationX = 0;
+            int16_t animationY = 0;
+            int16_t animationW = 8;
+            int16_t animationH = 8;
+            if (!TryReadBitmapLayout(bitmapAnimation, animationX, animationY, animationW, animationH))
             {
-                bmpPosX = bitmapAnimation["position"]["x"];
-                bmpPosY = bitmapAnimation["position"]["y"];
+                Log(F("BitmapAnimation"), F("Invalid compact layout, skipping animation"));
+                return;
             }
-            if (bitmapAnimation["size"]["width"].is<int16_t>() && bitmapAnimation["size"]["height"].is<int16_t>())
+            bmpPosX = animationX;
+            bmpPosY = animationY;
+            bmpWidth = animationW;
+            bmpHeight = animationH;
+            if ((bmpWidth * bmpHeight) > 64)
             {
-                bmpWidth = bitmapAnimation["size"]["width"];
-                bmpHeight = bitmapAnimation["size"]["height"];
+                Log(F("BitmapAnimation"), F("BitmapAnimation exceeds 8x8 buffer limit"));
+                return;
             }
             withBMP = true;
 
@@ -1687,13 +1824,10 @@ void CreateFrames(JsonDocument doc, int forceDuration)
             bool hasPalette = bitmapAnimation["p"].is<JsonArray>();
             uint16_t palette[256] = {};
             uint16_t paletteSize = 0;
-            if (hasPalette)
+            if (hasPalette && !TryReadPalette(bitmapAnimation["p"], palette, 256, paletteSize))
             {
-                for (JsonVariant c : bitmapAnimation["p"].as<JsonArray>())
-                {
-                    if (paletteSize >= 256) break;
-                    palette[paletteSize++] = c.as<uint16_t>();
-                }
+                Log(F("BitmapAnimation"), F("Invalid palette array, skipping animation"));
+                return;
             }
 
             int counter = 0;
@@ -1701,21 +1835,10 @@ void CreateFrames(JsonDocument doc, int forceDuration)
             {
                 if (x["c"].is<JsonArray>() && x["n"].is<JsonArray>())
                 {
-                    // Decode RLE using parallel c/n arrays
-                    JsonArray colorArr = x["c"].as<JsonArray>();
-                    JsonArray cntArr = x["n"].as<JsonArray>();
-                    int pixel = 0;
-                    auto colorIt = colorArr.begin();
-                    auto cntIt = cntArr.begin();
-                    while (colorIt != colorArr.end() && cntIt != cntArr.end() && pixel < bmpWidth * bmpHeight)
+                    if (!DecodeRLEFrame(x["c"], x["n"], hasPalette, palette, paletteSize, animationBmpList[counter], bmpWidth * bmpHeight))
                     {
-                        uint16_t val = (*colorIt).as<uint16_t>();
-                        int count = (*cntIt).as<int>();
-                        uint16_t color = hasPalette ? ((val < paletteSize) ? palette[val] : 0) : val;
-                        for (int n = 0; n < count && pixel < bmpWidth * bmpHeight; n++)
-                            animationBmpList[counter][pixel++] = color;
-                        ++colorIt;
-                        ++cntIt;
+                        Log(F("BitmapAnimation"), F("Invalid RLE frame, skipping animation"));
+                        return;
                     }
                 }
                 else
@@ -2385,10 +2508,21 @@ void AnimateBMP(bool isShowRequired)
 
 void DrawSingleBitmap(JsonObject json)
 {
-    int16_t h = json["size"]["height"].as<int16_t>();
-    int16_t w = json["size"]["width"].as<int16_t>();
-    int16_t x = json["position"]["x"].as<int16_t>();
-    int16_t y = json["position"]["y"].as<int16_t>();
+    int16_t h = 8;
+    int16_t w = 8;
+    int16_t x = 0;
+    int16_t y = 0;
+
+    if (!TryReadBitmapLayout(json, x, y, w, h))
+    {
+        Log(F("Bitmap"), F("Invalid compact layout, skipping bitmap"));
+        return;
+    }
+    if ((w * h) > 64)
+    {
+        Log(F("Bitmap"), F("Bitmap exceeds 8x8 buffer limit"));
+        return;
+    }
 
     bmpHeight = h;
     bmpWidth = w;
@@ -2404,29 +2538,16 @@ void DrawSingleBitmap(JsonObject json)
         bool hasPalette = json["p"].is<JsonArray>();
         uint16_t palette[256] = {};
         uint16_t paletteSize = 0;
-        if (hasPalette)
+        if (hasPalette && !TryReadPalette(json["p"], palette, 256, paletteSize))
         {
-            for (JsonVariant c : json["p"].as<JsonArray>())
-            {
-                if (paletteSize >= 256) break;
-                palette[paletteSize++] = c.as<uint16_t>();
-            }
+            Log(F("Bitmap"), F("Invalid palette array, skipping bitmap"));
+            return;
         }
 
-        JsonArray colorArr = json["c"].as<JsonArray>();
-        JsonArray cntArr = json["n"].as<JsonArray>();
-        int pixel = 0;
-        auto colorIt = colorArr.begin();
-        auto cntIt = cntArr.begin();
-        while (colorIt != colorArr.end() && cntIt != cntArr.end() && pixel < w * h)
+        if (!DecodeRLEFrame(json["c"], json["n"], hasPalette, palette, paletteSize, bmpArray, w * h))
         {
-            uint16_t val = (*colorIt).as<uint16_t>();
-            int count = (*cntIt).as<int>();
-            uint16_t color = hasPalette ? ((val < paletteSize) ? palette[val] : 0) : val;
-            for (int n = 0; n < count && pixel < w * h; n++)
-                bmpArray[pixel++] = color;
-            ++colorIt;
-            ++cntIt;
+            Log(F("Bitmap"), F("Invalid compact RLE data, skipping bitmap"));
+            return;
         }
 
         int16_t py = y;
@@ -3294,7 +3415,7 @@ void ShowBootAnimation()
 void ShowBatteryScreen()
 {
     JsonDocument doc;
-    const char *json = "{\"bitmap\":{\"data\":[0,0,65535,65535,65535,0,0,0,0,0,65535,2016,65535,0,0,0,0,65535,2016,2016,2016,65535,0,0,0,65535,2016,2016,2016,65535,0,0,0,65535,2016,2016,2016,65535,0,0,0,65535,2016,2016,2016,65535,0,0,0,65535,2016,2016,2016,65535,0,0,0,65535,65535,65535,65535,65535,0,0],\"position\":{\"x\":0,\"y\":0},\"size\":{\"width\":8,\"height\":8}}}";
+    const char *json = "{\"bitmap\":{\"p\":[0,65535,2016],\"c\":[0,1,0,1,2,1,0,1,2,1,0,1,2,1,0,1,2,1,0,1,2,1,0,1,2,1,0,1,0],\"n\":[2,3,5,1,1,1,4,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,5,2]}}";
     DeserializationError error = deserializeJson(doc, json);
     if (!error)
     {

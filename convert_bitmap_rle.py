@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """
-Convert PixelIt JSON between old flat uint16 bitmap format and new RLE+palette format.
+Convert PixelIt JSON between old flat uint16 bitmap format and new RLE format.
 
 Old bitmap format:
   "data": [0, 63488, 0, ...]   (array of uint16 RGB565 values)
 
-New bitmap format (with palette, compact):
+New bitmap format (with palette):
+    "l":  [x, y] or [x, y, w, h]  (w/h default to 8/8 when omitted)
   "p":  [0, 63488],
   "c":  [0, 1, 0, ...],   (palette index per run)
   "n":  [1, 1, 1, ...]    (run length per run)
 
-New bitmap format (without palette, direct colors):
+New bitmap format (without palette):
+    "l":  [x, y] or [x, y, w, h]  (w/h default to 8/8 when omitted)
   "c":  [0, 63488, 0, ...],   (direct RGB565 color per run)
   "n":  [1, 1, 1, ...]        (run length per run)
 
@@ -18,6 +20,7 @@ Old bitmapAnimation format:
   "data": [[0, 63488, ...], [...]]   (array of frames, each a uint16 array)
 
 New bitmapAnimation format:
+    "l": [x, y] or [x, y, w, h],  (w/h default to 8/8 when omitted)
   "p": [0, 63488, ...],        (optional shared palette; if absent, c = direct RGB565)
   "data": [
     {"c": [0, 1, ...], "n": [1, 1, ...]},
@@ -78,6 +81,60 @@ def build_palette(frames: list[list[int]]) -> list[int]:
     return palette
 
 
+def read_layout(obj: dict) -> tuple[int, int, int, int]:
+    """Read layout from compact l or legacy position/size. Defaults to 0,0,8,8."""
+    x = 0
+    y = 0
+    w = 8
+    h = 8
+
+    layout = obj.get("l")
+    if isinstance(layout, list):
+        if len(layout) == 2:
+            x = int(layout[0])
+            y = int(layout[1])
+            return x, y, w, h
+        if len(layout) == 4:
+            x = int(layout[0])
+            y = int(layout[1])
+            w = int(layout[2])
+            h = int(layout[3])
+            return x, y, w, h
+
+    pos = obj.get("position")
+    if isinstance(pos, dict):
+        x = int(pos.get("x", x))
+        y = int(pos.get("y", y))
+
+    size = obj.get("size")
+    if isinstance(size, dict):
+        w = int(size.get("width", w))
+        h = int(size.get("height", h))
+
+    return x, y, w, h
+
+
+def write_compact_layout(obj: dict, x: int, y: int, w: int, h: int) -> None:
+    """Write compact l and remove legacy position/size fields. Omit l if defaults (0,0,8,8)."""
+    obj.pop("position", None)
+    obj.pop("size", None)
+
+    # Only write l if not default location (0,0) or default size (8,8)
+    if x == 0 and y == 0 and w == 8 and h == 8:
+        obj.pop("l", None)  # Omit l entirely when all defaults
+    elif w == 8 and h == 8:
+        obj["l"] = [x, y]
+    else:
+        obj["l"] = [x, y, w, h]
+
+
+def write_legacy_layout(obj: dict, x: int, y: int, w: int, h: int) -> None:
+    """Write legacy position/size and remove compact l field."""
+    obj.pop("l", None)
+    obj["position"] = {"x": x, "y": y}
+    obj["size"] = {"width": w, "height": h}
+
+
 def encode_rle(pixels: list[int], palette: list[int]) -> tuple[list[int], list[int]]:
     """Encode a flat pixel list as parallel indices and counts lists."""
     color_to_idx = {c: i for i, c in enumerate(palette)}
@@ -119,6 +176,7 @@ def decode_rle(values: list[int], counts: list[int], palette: list[int] | None =
 def convert_single_bitmap(obj: dict) -> dict:
     """Convert a single bitmap object in either direction."""
     if is_old_bitmap(obj):
+        x, y, w, h = read_layout(obj)
         pixels = [int(v) for v in obj["data"]]
         unique_colors = list(dict.fromkeys(pixels))  # preserve order, deduplicate
 
@@ -137,9 +195,11 @@ def convert_single_bitmap(obj: dict) -> dict:
         result["p"] = palette
         result["c"] = indices
         result["n"] = counts
+        write_compact_layout(result, x, y, w, h)
         return result
 
     if is_new_bitmap(obj):
+        x, y, w, h = read_layout(obj)
         palette = [int(v) for v in obj.get("p", [])] if isinstance(obj.get("p"), list) else None
         values = [int(v) for v in obj["c"]]
         counts = [int(v) for v in obj["n"]]
@@ -149,6 +209,7 @@ def convert_single_bitmap(obj: dict) -> dict:
         result.pop("p", None)
         del result["c"]
         del result["n"]
+        write_legacy_layout(result, x, y, w, h)
         return result
 
     return obj
@@ -157,6 +218,7 @@ def convert_single_bitmap(obj: dict) -> dict:
 def convert_animation(obj: dict) -> dict:
     """Convert a bitmapAnimation object in either direction."""
     if is_old_animation(obj):
+        x, y, w, h = read_layout(obj)
         frames = [[int(v) for v in frame] for frame in obj["data"]]
         palette = build_palette(frames)
 
@@ -185,9 +247,11 @@ def convert_animation(obj: dict) -> dict:
         result = copy.copy(obj)
         result["p"] = palette
         result["data"] = rle_frames
+        write_compact_layout(result, x, y, w, h)
         return result
 
     if is_new_animation(obj):
+        x, y, w, h = read_layout(obj)
         palette = [int(v) for v in obj.get("p", [])] if isinstance(obj.get("p"), list) else None
         frames = []
         for frame in obj["data"]:
@@ -198,6 +262,7 @@ def convert_animation(obj: dict) -> dict:
         result = copy.copy(obj)
         result["data"] = frames
         result.pop("p", None)
+        write_legacy_layout(result, x, y, w, h)
         return result
 
     return obj
