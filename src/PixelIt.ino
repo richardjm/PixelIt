@@ -319,90 +319,31 @@ String OldGetMP3PlayerInfo;
 // Websoket Vars
 String websocketConnection[10];
 
-bool TryReadPalette(JsonVariant input, uint16_t *palette, uint16_t maxEntries, uint16_t &paletteSize)
+bool DecodeRLEFrame(JsonVariant colorsInput, JsonVariant countsInput, JsonArray palette, uint16_t *output, uint16_t pixelCount)
 {
-    paletteSize = 0;
-
-    if (input.is<JsonArray>())
-    {
-        for (JsonVariant c : input.as<JsonArray>())
-        {
-            if (paletteSize >= maxEntries)
-            {
-                break;
-            }
-            palette[paletteSize++] = c.as<uint16_t>();
-        }
-        return true;
-    }
-
-    return false;
-}
-
-bool TryReadRunValues(JsonVariant input, bool hasPalette, uint16_t *values, uint16_t maxValues, uint16_t &valueCount)
-{
-    (void)hasPalette;
-    valueCount = 0;
-
-    if (input.is<JsonArray>())
-    {
-        for (JsonVariant value : input.as<JsonArray>())
-        {
-            if (valueCount >= maxValues)
-            {
-                break;
-            }
-            values[valueCount++] = value.as<uint16_t>();
-        }
-        return true;
-    }
-
-    return false;
-}
-
-bool TryReadRunCounts(JsonVariant input, uint16_t *counts, uint16_t maxCounts, uint16_t &countSize)
-{
-    countSize = 0;
-
-    if (input.is<JsonArray>())
-    {
-        for (JsonVariant count : input.as<JsonArray>())
-        {
-            if (countSize >= maxCounts)
-            {
-                break;
-            }
-            counts[countSize++] = count.as<uint16_t>();
-        }
-        return true;
-    }
-
-    return false;
-}
-
-bool DecodeRLEFrame(JsonVariant colorsInput, JsonVariant countsInput, bool hasPalette, const uint16_t *palette, uint16_t paletteSize, uint16_t *output, uint16_t pixelCount)
-{
-    uint16_t values[64] = {};
-    uint16_t counts[64] = {};
-    uint16_t valueCount = 0;
-    uint16_t countSize = 0;
-
-    if (!TryReadRunValues(colorsInput, hasPalette, values, 64, valueCount) || !TryReadRunCounts(countsInput, counts, 64, countSize))
+    if (!colorsInput.is<JsonArray>() || !countsInput.is<JsonArray>())
     {
         return false;
     }
 
-    uint16_t runCount = valueCount < countSize ? valueCount : countSize;
+    JsonArray values = colorsInput.as<JsonArray>();
+    JsonArray counts = countsInput.as<JsonArray>();
+
+    bool hasPalette = !palette.isNull();
+    uint16_t paletteSize = hasPalette ? palette.size() : 0;
+
+    uint16_t runCount = values.size() < counts.size() ? values.size() : counts.size();
     uint16_t pixel = 0;
     for (uint16_t i = 0; i < runCount && pixel < pixelCount; i++)
     {
-        uint16_t color = values[i];
+        uint16_t color = values[i].as<uint16_t>();
         if (hasPalette)
         {
-            color = values[i] < paletteSize ? palette[values[i]] : 0;
+            color = color < paletteSize ? palette[color].as<uint16_t>() : 0;
         }
 
-        for (uint16_t n = 0; n < counts[i] && pixel < pixelCount; n++)
+        uint16_t runLength = counts[i].as<uint16_t>();
+        for (uint16_t n = 0; n < runLength && pixel < pixelCount; n++)
         {
             output[pixel++] = color;
         }
@@ -1771,10 +1712,9 @@ void CreateFrames(JsonDocument doc, int forceDuration)
 
             // Build palette once for RLE-encoded frames (optional).
             // If absent, color values in frames are treated as direct RGB565.
-            bool hasPalette = bitmapAnimation["p"].is<JsonArray>();
-            uint16_t palette[256] = {};
-            uint16_t paletteSize = 0;
-            if (hasPalette && !TryReadPalette(bitmapAnimation["p"], palette, 256, paletteSize))
+            JsonVariant paletteInput = bitmapAnimation["p"];
+            JsonArray palette = paletteInput.as<JsonArray>();
+            if (!paletteInput.isNull() && !paletteInput.is<JsonArray>())
             {
                 Log(F("BitmapAnimation"), F("Invalid palette array, skipping animation"));
                 return;
@@ -1785,7 +1725,7 @@ void CreateFrames(JsonDocument doc, int forceDuration)
             {
                 if (x["c"].is<JsonArray>() && x["n"].is<JsonArray>())
                 {
-                    if (!DecodeRLEFrame(x["c"], x["n"], hasPalette, palette, paletteSize, animationBmpList[counter], bmpPosition.width * bmpPosition.height))
+                    if (!DecodeRLEFrame(x["c"], x["n"], palette, animationBmpList[counter], bmpPosition.width * bmpPosition.height))
                     {
                         Log(F("BitmapAnimation"), F("Invalid RLE frame, skipping animation"));
                         return;
@@ -2478,16 +2418,15 @@ void DrawSingleBitmap(JsonObject json)
         // RLE format: parallel c/n arrays.
         // If "p" is present, c values are palette indices.
         // If "p" is absent, c values are direct RGB565 colors.
-        bool hasPalette = json["p"].is<JsonArray>();
-        uint16_t palette[256] = {};
-        uint16_t paletteSize = 0;
-        if (hasPalette && !TryReadPalette(json["p"], palette, 256, paletteSize))
+        JsonVariant paletteInput = json["p"];
+        JsonArray palette = paletteInput.as<JsonArray>();
+        if (!paletteInput.isNull() && !paletteInput.is<JsonArray>())
         {
             Log(F("Bitmap"), F("Invalid palette array, skipping bitmap"));
             return;
         }
 
-        if (!DecodeRLEFrame(json["c"], json["n"], hasPalette, palette, paletteSize, bmpArray, bmpPosition.width * bmpPosition.height))
+        if (!DecodeRLEFrame(json["c"], json["n"], palette, bmpArray, bmpPosition.width * bmpPosition.height))
         {
             Log(F("Bitmap"), F("Invalid compact RLE data, skipping bitmap"));
             return;
