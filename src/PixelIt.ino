@@ -232,10 +232,7 @@ unsigned long lastGetBatteryPercent = 0;
 // Bmp Vars
 uint16_t bmpArray[64];
 bool withBMP = false;
-int bmpWidth = 8;
-int bmpHeight = 8;
-int bmpPosX = 0;
-int bmpPosY = 0;
+Position bmpPosition;
 
 // Timerserver Vars
 String ntpServer = "de.pool.ntp.org";
@@ -321,47 +318,6 @@ String OldGetMP3PlayerInfo;
 
 // Websoket Vars
 String websocketConnection[10];
-
-bool TryReadBitmapLayout(JsonObject json, int16_t &x, int16_t &y, int16_t &w, int16_t &h)
-{
-    x = 0;
-    y = 0;
-    w = 8;
-    h = 8;
-
-    if (json["l"].is<JsonArray>())
-    {
-        JsonArray layout = json["l"].as<JsonArray>();
-        if (layout.size() != 2 && layout.size() != 4)
-        {
-            return false;
-        }
-
-        x = layout[0].as<int16_t>();
-        y = layout[1].as<int16_t>();
-
-        if (layout.size() == 4)
-        {
-            w = layout[2].as<int16_t>();
-            h = layout[3].as<int16_t>();
-        }
-
-        return w > 0 && h > 0;
-    }
-
-    if (json["position"]["x"].is<int16_t>() && json["position"]["y"].is<int16_t>())
-    {
-        x = json["position"]["x"];
-        y = json["position"]["y"];
-    }
-    if (json["size"]["width"].is<int16_t>() && json["size"]["height"].is<int16_t>())
-    {
-        w = json["size"]["width"];
-        h = json["size"]["height"];
-    }
-
-    return w > 0 && h > 0;
-}
 
 bool TryReadPalette(JsonVariant input, uint16_t *palette, uint16_t maxEntries, uint16_t &paletteSize)
 {
@@ -1759,7 +1715,7 @@ void CreateFrames(JsonDocument doc, int forceDuration)
             withBMP = doc["withBMPRestore"];
             if (withBMP == true)
             {
-                matrix->drawRGBBitmap(bmpPosX, bmpPosY, bmpArray, bmpWidth, bmpHeight);
+                matrix->drawRGBBitmap(bmpPosition.x, bmpPosition.y, bmpArray, bmpPosition.width, bmpPosition.height);
             }
         }
 
@@ -1792,20 +1748,14 @@ void CreateFrames(JsonDocument doc, int forceDuration)
         if (doc["bitmapAnimation"].is<JsonObject>())
         {
             JsonObject bitmapAnimation = doc["bitmapAnimation"];
-            int16_t animationX = 0;
-            int16_t animationY = 0;
-            int16_t animationW = 8;
-            int16_t animationH = 8;
-            if (!TryReadBitmapLayout(bitmapAnimation, animationX, animationY, animationW, animationH))
+            Position newPosition;
+            if (!JsonToPosition(bitmapAnimation, newPosition))
             {
                 Log(F("BitmapAnimation"), F("Invalid compact layout, skipping animation"));
                 return;
             }
-            bmpPosX = animationX;
-            bmpPosY = animationY;
-            bmpWidth = animationW;
-            bmpHeight = animationH;
-            if ((bmpWidth * bmpHeight) > 64)
+            bmpPosition = newPosition;
+            if ((bmpPosition.width * bmpPosition.height) > 64)
             {
                 Log(F("BitmapAnimation"), F("BitmapAnimation exceeds 8x8 buffer limit"));
                 return;
@@ -1835,7 +1785,7 @@ void CreateFrames(JsonDocument doc, int forceDuration)
             {
                 if (x["c"].is<JsonArray>() && x["n"].is<JsonArray>())
                 {
-                    if (!DecodeRLEFrame(x["c"], x["n"], hasPalette, palette, paletteSize, animationBmpList[counter], bmpWidth * bmpHeight))
+                    if (!DecodeRLEFrame(x["c"], x["n"], hasPalette, palette, paletteSize, animationBmpList[counter], bmpPosition.width * bmpPosition.height))
                     {
                         Log(F("BitmapAnimation"), F("Invalid RLE frame, skipping animation"));
                         return;
@@ -1845,7 +1795,7 @@ void CreateFrames(JsonDocument doc, int forceDuration)
                 {
                     // Plain uint16_t array per frame (existing format)
                     copyArray(x.as<JsonArray>(), bmpArray);
-                    for (int i = 0; i < bmpWidth * bmpHeight; i++)
+                    for (int i = 0; i < bmpPosition.width * bmpPosition.height; i++)
                         animationBmpList[counter][i] = bmpArray[i];
                 }
                 counter++;
@@ -2409,7 +2359,7 @@ void ScrollText(bool isFadeInRequired)
 
         if (withBMP)
         {
-            matrix->drawRGBBitmap(bmpPosX, bmpPosY, bmpArray, bmpWidth, bmpHeight);
+            matrix->drawRGBBitmap(bmpPosition.x, bmpPosition.y, bmpArray, bmpPosition.width, bmpPosition.height);
         }
 
         if (isFadeInRequired)
@@ -2483,7 +2433,7 @@ void AnimateBMP(bool isShowRequired)
 
     ClearBMPArea();
 
-    matrix->drawRGBBitmap(bmpPosX, bmpPosY, animationBmpList[animateBMPCounter], bmpWidth, bmpHeight);
+    matrix->drawRGBBitmap(bmpPosition.x, bmpPosition.y, animationBmpList[animateBMPCounter], bmpPosition.width, bmpPosition.height);
 
     for (int y = 0; y < 64; y++)
     {
@@ -2508,26 +2458,19 @@ void AnimateBMP(bool isShowRequired)
 
 void DrawSingleBitmap(JsonObject json)
 {
-    int16_t h = 8;
-    int16_t w = 8;
-    int16_t x = 0;
-    int16_t y = 0;
-
-    if (!TryReadBitmapLayout(json, x, y, w, h))
+    Position newPosition;
+    if (!JsonToPosition(json, newPosition))
     {
         Log(F("Bitmap"), F("Invalid compact layout, skipping bitmap"));
         return;
     }
-    if ((w * h) > 64)
+    if ((newPosition.width * newPosition.height) > 64)
     {
         Log(F("Bitmap"), F("Bitmap exceeds 8x8 buffer limit"));
         return;
     }
 
-    bmpHeight = h;
-    bmpWidth = w;
-    bmpPosX = x;
-    bmpPosY = y;
+    bmpPosition = newPosition;
     withBMP = true;
 
     if (json["c"].is<JsonArray>() && json["n"].is<JsonArray>())
@@ -2544,30 +2487,25 @@ void DrawSingleBitmap(JsonObject json)
             return;
         }
 
-        if (!DecodeRLEFrame(json["c"], json["n"], hasPalette, palette, paletteSize, bmpArray, w * h))
+        if (!DecodeRLEFrame(json["c"], json["n"], hasPalette, palette, paletteSize, bmpArray, bmpPosition.width * bmpPosition.height))
         {
             Log(F("Bitmap"), F("Invalid compact RLE data, skipping bitmap"));
             return;
         }
-
-        int16_t py = y;
-        for (int16_t j = 0; j < h; j++, py++)
-            for (int16_t k = 0; k < w; k++)
-                matrix->drawPixel(x + k, py, bmpArray[j * w + k]);
     }
-    else
-    {
-        // Plain uint16_t array format (existing)
-        // Hier kann leider nicht die Funktion matrix->drawRGBBitmap() genutzt werde da diese Fehler in der Anzeige macht wenn es mehr wie 8x8 Pixel werden.
-        for (int16_t j = 0; j < h; j++, y++)
-            for (int16_t i = 0; i < w; i++)
-                matrix->drawPixel(x + i, y, json["data"][j * w + i].as<uint16_t>());
-
+    else {
         // JsonArray in IntArray konvertieren
         // dies ist nötig für diverse kleine Logiken z.B. Scrolltext
         // bei Multibitmaps landet hier nur eine der Bitmaps - das ist aber egal, da dann eh nicht gescrollt wird
         copyArray(json["data"].as<JsonArray>(), bmpArray);
     }
+
+    // Plain uint16_t array format (existing)
+    // Hier kann leider nicht die Funktion matrix->drawRGBBitmap() genutzt werde da diese Fehler in der Anzeige macht wenn es mehr wie 8x8 Pixel werden.
+    int16_t py = bmpPosition.y;
+    for (int16_t j = 0; j < bmpPosition.height; j++, py++)
+        for (int16_t k = 0; k < bmpPosition.width; k++)
+            matrix->drawPixel(bmpPosition.x + k, py, bmpArray[j * bmpPosition.width + k]);
 }
 
 void DrawClock(bool fromJSON)

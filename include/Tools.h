@@ -253,6 +253,55 @@ float CelsiusToFahrenheit(float celsius)
 	return (celsius * 9 / 5) + 32;
 }
 
+struct Position{
+	int16_t x = 0;
+	int16_t y = 0;
+	int16_t width = 8;
+	int16_t height = 8;
+
+	Position() {}
+	Position(int16_t _x, int16_t _y, int16_t _width = 8, int16_t _height = 8) : x(_x), y(_y), width(_width), height(_height) {}
+};
+
+
+bool JsonToPosition(JsonObject json, Position &position)
+{
+    position = Position();
+
+    if (json["l"].is<JsonArray>())
+    {
+        JsonArray layout = json["l"].as<JsonArray>();
+        if (layout.size() != 2 && layout.size() != 4)
+        {
+            return false;
+        }
+
+        position.x = layout[0].as<int16_t>();
+        position.y = layout[1].as<int16_t>();
+
+        if (layout.size() == 4)
+        {
+            position.width = layout[2].as<int16_t>();
+            position.height = layout[3].as<int16_t>();
+        }
+
+        return position.width > 0 && position.height > 0;
+    }
+
+    if (json["position"]["x"].is<int16_t>() && json["position"]["y"].is<int16_t>())
+    {
+        position.x = json["position"]["x"];
+        position.y = json["position"]["y"];
+    }
+    if (json["size"]["width"].is<int16_t>() && json["size"]["height"].is<int16_t>())
+    {
+        position.width = json["size"]["width"];
+        position.height = json["size"]["height"];
+    }
+
+    return position.width > 0 && position.height > 0;
+}
+
 /// <summary>
 /// RGB Color struct.
 ///
