@@ -8,12 +8,12 @@ if len(sys.argv) < 2:
 tag = sys.argv[1]
 
 content_new = ''
-with open ('./src/PixelIt.ino', 'r' ) as f:
+with open ('./platformio.ini', 'r' ) as f:
     content = f.read()
-    content_new = re.sub('(#define\s+VERSION\s+\")(.*)(\")', r'\g<1>'+ tag + r'\g<3>', content, flags = re.M)
+    content_new = re.sub('pixelit_version\s*=\s*.*', 'pixelit_version = ' + tag, content, flags = re.M)
     f.close()
 
 if content_new != "":
-    with open ('./src/PixelIt.ino', 'w' ) as f:
+    with open ('./platformio.ini', 'w' ) as f:
         f.write(content_new)
         f.close()

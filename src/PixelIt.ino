@@ -69,8 +69,8 @@
 #define SEND_SENSOR_INTERVAL 1000 * 3               // 10 Seconds
 #define UPDATE_BATTERY_LEVEL_INTERVAL 1000 * 30     // 30 Seconds
 
-// Version config - will be replaced by build piple with Git-Tag!
-#define VERSION "0.0.0-beta" // will be replaced by build piple with Git-Tag!
+// PIXELIT_VERSION Comes in from .ino, the version is replaced by the build pipeline with Git-Tag
+#define VERSION PIXELIT_VERSION
 
 // Workaround for String in defines
 #define XSTR(x) #x
