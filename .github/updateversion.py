@@ -5,7 +5,8 @@ if len(sys.argv) < 2:
     print("Usage: python3 updateversion.py <version>")
     sys.exit(1)
 
-tag = sys.argv[1]
+# Ensure the filename will not be a directory path by replacing '/' with '-'
+tag = sys.argv[1].replace('/', '-')
 
 content_new = ''
 with open ('./platformio.ini', 'r' ) as f:
