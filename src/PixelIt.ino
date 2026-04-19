@@ -447,82 +447,81 @@ void EnteredHotspotCallback(WiFiManager *manager)
 void SaveConfig()
 {
     // save the custom parameters to FS
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &json = jsonBuffer.createObject();
+    JsonDocument doc;
 
-    json["version"] = VERSION;
-    json["isESP8266"] = isESP8266;
-    json["temperatureUnit"] = static_cast<int>(temperatureUnit);
-    json["matrixBrightnessAutomatic"] = matrixBrightnessAutomatic;
-    json["mbaDimMin"] = mbaDimMin;
-    json["mbaDimMax"] = mbaDimMax;
-    json["mbaLuxMin"] = mbaLuxMin;
-    json["mbaLuxMax"] = mbaLuxMax;
-    json["matrixBrightness"] = currentMatrixBrightness;
-    json["matrixType"] = matrixType;
-    json["note"] = note;
-    json["hostname"] = hostname;
-    json["matrixTempCorrection"] = matrixTempCorrection;
-    json["ntpServer"] = ntpServer;
-    json["clockTimeZone"] = clockTimeZone;
-    json["clockColor"] = "#" + RGBtoHEX(clockColorR, clockColorG, clockColorB);
-    json["clockSwitchAktiv"] = clockSwitchAktiv;
-    json["clockSwitchSec"] = clockSwitchSec;
-    json["clock24Hours"] = clock24Hours;
-    json["clockDayLightSaving"] = clockDayLightSaving;
-    json["clockWithSeconds"] = clockWithSeconds;
-    json["clockAutoFallbackActive"] = clockAutoFallbackActive;
-    json["clockAutoFallbackTime"] = clockAutoFallbackTime;
-    json["clockAutoFallbackAnimation"] = clockAutoFallbackAnimation;
-    json["clockDateDayMonth"] = clockDateDayMonth;
-    json["clockDayOfWeekFirstMonday"] = clockDayOfWeekFirstMonday;
-    json["clockBlinkAnimated"] = clockBlinkAnimated;
-    json["clockLargeFont"] = clockLargeFont;
-    json["clockFatFont"] = clockFatFont;
-    json["clockDrawWeekDays"] = clockDrawWeekDays;
-    json["scrollTextDefaultDelay"] = scrollTextDefaultDelay;
-    json["bootScreenAktiv"] = bootScreenAktiv;
-    json["bootBatteryScreen"] = bootBatteryScreen;
-    json["bootSound"] = bootSound;
-    json["mqttAktiv"] = mqttAktiv;
-    json["mqttUser"] = mqttUser;
-    json["mqttPassword"] = mqttPassword;
-    json["mqttServer"] = mqttServer;
-    json["mqttMasterTopic"] = mqttMasterTopic;
-    json["mqttPort"] = mqttPort;
-    json["mqttUseDeviceTopic"] = mqttUseDeviceTopic;
-    json["mqttHAdiscoverable"] = mqttHAdiscoverable;
-    json["luxOffset"] = luxOffset;
-    json["temperatureOffset"] = temperatureOffset;
-    json["humidityOffset"] = humidityOffset;
-    json["pressureOffset"] = pressureOffset;
-    json["gasOffset"] = gasOffset;
+    doc["version"] = VERSION;
+    doc["isESP8266"] = isESP8266;
+    doc["temperatureUnit"] = static_cast<int>(temperatureUnit);
+    doc["matrixBrightnessAutomatic"] = matrixBrightnessAutomatic;
+    doc["mbaDimMin"] = mbaDimMin;
+    doc["mbaDimMax"] = mbaDimMax;
+    doc["mbaLuxMin"] = mbaLuxMin;
+    doc["mbaLuxMax"] = mbaLuxMax;
+    doc["matrixBrightness"] = currentMatrixBrightness;
+    doc["matrixType"] = matrixType;
+    doc["note"] = note;
+    doc["hostname"] = hostname;
+    doc["matrixTempCorrection"] = matrixTempCorrection;
+    doc["ntpServer"] = ntpServer;
+    doc["clockTimeZone"] = clockTimeZone;
+    doc["clockColor"] = "#" + RGBtoHEX(clockColorR, clockColorG, clockColorB);
+    doc["clockSwitchAktiv"] = clockSwitchAktiv;
+    doc["clockSwitchSec"] = clockSwitchSec;
+    doc["clock24Hours"] = clock24Hours;
+    doc["clockDayLightSaving"] = clockDayLightSaving;
+    doc["clockWithSeconds"] = clockWithSeconds;
+    doc["clockAutoFallbackActive"] = clockAutoFallbackActive;
+    doc["clockAutoFallbackTime"] = clockAutoFallbackTime;
+    doc["clockAutoFallbackAnimation"] = clockAutoFallbackAnimation;
+    doc["clockDateDayMonth"] = clockDateDayMonth;
+    doc["clockDayOfWeekFirstMonday"] = clockDayOfWeekFirstMonday;
+    doc["clockBlinkAnimated"] = clockBlinkAnimated;
+    doc["clockLargeFont"] = clockLargeFont;
+    doc["clockFatFont"] = clockFatFont;
+    doc["clockDrawWeekDays"] = clockDrawWeekDays;
+    doc["scrollTextDefaultDelay"] = scrollTextDefaultDelay;
+    doc["bootScreenAktiv"] = bootScreenAktiv;
+    doc["bootBatteryScreen"] = bootBatteryScreen;
+    doc["bootSound"] = bootSound;
+    doc["mqttAktiv"] = mqttAktiv;
+    doc["mqttUser"] = mqttUser;
+    doc["mqttPassword"] = mqttPassword;
+    doc["mqttServer"] = mqttServer;
+    doc["mqttMasterTopic"] = mqttMasterTopic;
+    doc["mqttPort"] = mqttPort;
+    doc["mqttUseDeviceTopic"] = mqttUseDeviceTopic;
+    doc["mqttHAdiscoverable"] = mqttHAdiscoverable;
+    doc["luxOffset"] = luxOffset;
+    doc["temperatureOffset"] = temperatureOffset;
+    doc["humidityOffset"] = humidityOffset;
+    doc["pressureOffset"] = pressureOffset;
+    doc["gasOffset"] = gasOffset;
 
-    json["dfpRXpin"] = dfpRXPin;
-    json["dfpTXpin"] = dfpTXPin;
-    json["onewirePin"] = onewirePin;
-    json["SCLPin"] = SCLPin;
-    json["SDAPin"] = SDAPin;
+    doc["dfpRXpin"] = dfpRXPin;
+    doc["dfpTXpin"] = dfpTXPin;
+    doc["onewirePin"] = onewirePin;
+    doc["SCLPin"] = SCLPin;
+    doc["SDAPin"] = SDAPin;
     for (uint b = 0; b < 3; b++)
     {
-        json["btn" + String(b) + "Pin"] = btnPin[b];
-        json["btn" + String(b) + "PressedLevel"] = btnPressedLevel[b];
-        json["btn" + String(b) + "Enabled"] = btnEnabled[b];
-        json["btn" + String(b) + "Action"] = static_cast<int>(btnAction[b]);
+        doc["btn" + String(b) + "Pin"] = btnPin[b];
+        doc["btn" + String(b) + "PressedLevel"] = btnPressedLevel[b];
+        doc["btn" + String(b) + "Enabled"] = btnEnabled[b];
+        doc["btn" + String(b) + "Action"] = static_cast<int>(btnAction[b]);
     }
-    json["ldrDevice"] = ldrDevice;
-    json["ldrPulldown"] = ldrPulldown;
-    json["ldrSmoothing"] = ldrSmoothing;
-    json["initialVolume"] = initialVolume;
-    json["sendTelemetry"] = sendTelemetry;
-    json["checkUpdateScreen"] = checkUpdateScreen;
+    doc["ldrDevice"] = ldrDevice;
+    doc["ldrPulldown"] = ldrPulldown;
+    doc["ldrSmoothing"] = ldrSmoothing;
+    doc["initialVolume"] = initialVolume;
+    doc["sendTelemetry"] = sendTelemetry;
+    doc["checkUpdateScreen"] = checkUpdateScreen;
 
 #if defined(ESP8266)
     File configFile = LittleFS.open("/config.json", "w");
 #elif defined(ESP32)
     File configFile = SPIFFS.open("/config.json", "w");
 #endif
-    json.printTo(configFile);
+    serializeJson(doc, configFile);
     configFile.close();
     Log("SaveConfig", "Saved");
     // end save
@@ -544,12 +543,11 @@ void LoadConfig()
         {
             // Serial.println("opened config file");
 
-            DynamicJsonBuffer jsonBuffer;
-            JsonObject &json = jsonBuffer.parseObject(configFile);
-
-            if (json.success())
+            JsonDocument doc;
+            DeserializationError error = deserializeJson(doc, configFile);
+            if (!error)
             {
-                SetConfigVariables(json);
+                SetConfigVariables(doc);
                 Log("LoadConfig", "Loaded");
             }
         }
@@ -561,67 +559,67 @@ void LoadConfig()
     }
 }
 
-void SetConfig(JsonObject &json)
+void SetConfig(JsonDocument doc)
 {
-    SetConfigVariables(json);
+    SetConfigVariables(doc);
     SaveConfig();
 }
 
-void SetConfigVariables(JsonObject &json)
+void SetConfigVariables(JsonDocument json)
 {
-    if (json.containsKey("version"))
+    if (json["version"].is<String>())
     {
         optionsVersion = json["version"].as<String>();
     }
 
-    if (json.containsKey("temperatureUnit"))
+    if (json["temperatureUnit"].is<int>())
     {
         temperatureUnit = static_cast<TemperatureUnit>(json["temperatureUnit"].as<int>());
     }
 
-    if (json.containsKey("matrixBrightnessAutomatic"))
+    if (json["matrixBrightnessAutomatic"].is<bool>())
     {
         matrixBrightnessAutomatic = json["matrixBrightnessAutomatic"].as<bool>();
     }
 
-    if (json.containsKey("mbaDimMin"))
+    if (json["mbaDimMin"].is<int>())
     {
         mbaDimMin = json["mbaDimMin"].as<int>();
     }
 
-    if (json.containsKey("mbaDimMax"))
+    if (json["mbaDimMax"].is<int>())
     {
         mbaDimMax = json["mbaDimMax"].as<int>();
     }
 
-    if (json.containsKey("mbaLuxMin"))
+    if (json["mbaLuxMin"].is<int>())
     {
         mbaLuxMin = json["mbaLuxMin"].as<int>();
     }
 
-    if (json.containsKey("mbaLuxMax"))
+    if (json["mbaLuxMax"].is<int>())
     {
         mbaLuxMax = json["mbaLuxMax"].as<int>();
     }
 
-    if (json.containsKey("matrixBrightness"))
+    if (json["matrixBrightness"].is<int>())
     {
         SetCurrentMatrixBrightness(json["matrixBrightness"].as<int>());
     }
 
-    if (json.containsKey("matrixType"))
+    if (json["matrixType"].is<int>())
     {
         matrixType = json["matrixType"].as<int>();
     }
 
-    if (json.containsKey("note"))
+    if (json["note"].is<const char *>())
     {
-        note = json["note"].as<char *>();
+        note = json["note"].as<const char *>();
     }
 
-    if (json.containsKey("hostname"))
+    if (json["hostname"].is<const char *>())
     {
-        String hostname_raw = json["hostname"].as<char *>();
+        String hostname_raw = json["hostname"].as<const char *>();
         hostname = "";
         for (uint8_t n = 0; n < hostname_raw.length(); n++)
         {
@@ -630,138 +628,138 @@ void SetConfigVariables(JsonObject &json)
         }
     }
 
-    if (json.containsKey("matrixTempCorrection"))
+    if (json["matrixTempCorrection"].is<const char *>())
     {
-        matrixTempCorrection = json["matrixTempCorrection"].as<char *>();
+        matrixTempCorrection = json["matrixTempCorrection"].as<const char *>();
     }
 
-    if (json.containsKey("ntpServer"))
+    if (json["ntpServer"].is<const char *>())
     {
-        ntpServer = json["ntpServer"].as<char *>();
+        ntpServer = json["ntpServer"].as<const char *>();
     }
 
-    if (json.containsKey("clockTimeZone"))
+    if (json["clockTimeZone"].is<float>())
     {
         clockTimeZone = json["clockTimeZone"].as<float>();
     }
 
-    if (json.containsKey("clockColor"))
+    if (json["clockColor"].is<const char *>())
     {
         HEXtoRGB(json["clockColor"].as<String>(), clockColorR, clockColorG, clockColorB);
     }
 
-    if (json.containsKey("clockSwitchAktiv"))
+    if (json["clockSwitchAktiv"].is<bool>())
     {
         clockSwitchAktiv = json["clockSwitchAktiv"].as<bool>();
     }
 
-    if (json.containsKey("clockSwitchSec"))
+    if (json["clockSwitchSec"].is<uint>())
     {
         clockSwitchSec = json["clockSwitchSec"].as<uint>();
     }
 
-    if (json.containsKey("clock24Hours"))
+    if (json["clock24Hours"].is<bool>())
     {
         clock24Hours = json["clock24Hours"].as<bool>();
     }
 
-    if (json.containsKey("clockDayLightSaving"))
+    if (json["clockDayLightSaving"].is<bool>())
     {
         clockDayLightSaving = json["clockDayLightSaving"].as<bool>();
     }
 
-    if (json.containsKey("clockWithSeconds"))
+    if (json["clockWithSeconds"].is<bool>())
     {
         clockWithSeconds = json["clockWithSeconds"].as<bool>();
     }
 
-    if (json.containsKey("clockBlinkAnimated"))
+    if (json["clockBlinkAnimated"].is<bool>())
     {
         clockBlinkAnimated = json["clockBlinkAnimated"].as<bool>();
     }
 
-    if (json.containsKey("clockAutoFallbackActive"))
+    if (json["clockAutoFallbackActive"].is<bool>())
     {
         clockAutoFallbackActive = json["clockAutoFallbackActive"].as<bool>();
     }
 
-    if (json.containsKey("clockAutoFallbackAnimation"))
+    if (json["clockAutoFallbackAnimation"].is<uint>())
     {
         clockAutoFallbackAnimation = json["clockAutoFallbackAnimation"].as<uint>();
     }
 
-    if (json.containsKey("clockAutoFallbackTime"))
+    if (json["clockAutoFallbackTime"].is<uint>())
     {
         clockAutoFallbackTime = json["clockAutoFallbackTime"].as<uint>();
     }
 
-    if (json.containsKey("clockDateDayMonth"))
+    if (json["clockDateDayMonth"].is<bool>())
     {
         clockDateDayMonth = json["clockDateDayMonth"].as<bool>();
     }
 
-    if (json.containsKey("clockDayOfWeekFirstMonday"))
+    if (json["clockDayOfWeekFirstMonday"].is<bool>())
     {
         clockDayOfWeekFirstMonday = json["clockDayOfWeekFirstMonday"].as<bool>();
     }
 
-    if (json.containsKey("clockLargeFont"))
+    if (json["clockLargeFont"].is<bool>())
     {
         clockLargeFont = json["clockLargeFont"].as<bool>();
     }
 
-    if (json.containsKey("clockFatFont"))
+    if (json["clockFatFont"].is<bool>())
     {
         clockFatFont = json["clockFatFont"].as<bool>();
     }
-    if (json.containsKey("clockDrawWeekDays"))
+    if (json["clockDrawWeekDays"].is<bool>())
     {
         clockDrawWeekDays = json["clockDrawWeekDays"].as<bool>();
     }
 
-    if (json.containsKey("scrollTextDefaultDelay"))
+    if (json["scrollTextDefaultDelay"].is<uint>())
     {
         scrollTextDefaultDelay = json["scrollTextDefaultDelay"].as<uint>();
     }
 
-    if (json.containsKey("bootScreenAktiv"))
+    if (json["bootScreenAktiv"].is<bool>())
     {
         bootScreenAktiv = json["bootScreenAktiv"].as<bool>();
     }
 
-    if (json.containsKey("bootBatteryScreen"))
+    if (json["bootBatteryScreen"].is<bool>())
     {
         bootBatteryScreen = json["bootBatteryScreen"].as<bool>();
     }
 
-    if (json.containsKey("bootSound"))
+    if (json["bootSound"].is<bool>())
     {
         bootSound = json["bootSound"].as<bool>();
     }
 
-    if (json.containsKey("mqttAktiv"))
+    if (json["mqttAktiv"].is<bool>())
     {
         mqttAktiv = json["mqttAktiv"].as<bool>();
     }
 
-    if (json.containsKey("mqttUser"))
+    if (json["mqttUser"].is<const char *>())
     {
-        mqttUser = json["mqttUser"].as<char *>();
+        mqttUser = json["mqttUser"].as<const char *>();
     }
 
-    if (json.containsKey("mqttPassword"))
+    if (json["mqttPassword"].is<const char *>())
     {
-        mqttPassword = json["mqttPassword"].as<char *>();
+        mqttPassword = json["mqttPassword"].as<const char *>();
     }
 
-    if (json.containsKey("mqttServer"))
+    if (json["mqttServer"].is<const char *>())
     {
-        mqttServer = json["mqttServer"].as<char *>();
+        mqttServer = json["mqttServer"].as<const char *>();
     }
 
-    if (json.containsKey("mqttMasterTopic"))
+    if (json["mqttMasterTopic"].is<const char *>())
     {
-        mqttMasterTopic = json["mqttMasterTopic"].as<char *>();
+        mqttMasterTopic = json["mqttMasterTopic"].as<const char *>();
         mqttMasterTopic.trim();
         if (!mqttMasterTopic.endsWith("/"))
         {
@@ -769,117 +767,117 @@ void SetConfigVariables(JsonObject &json)
         }
     }
 
-    if (json.containsKey("mqttPort"))
+    if (json["mqttPort"].is<int>())
     {
         mqttPort = json["mqttPort"].as<int>();
     }
 
-    if (json.containsKey("mqttUseDeviceTopic"))
+    if (json["mqttUseDeviceTopic"].is<bool>())
     {
         mqttUseDeviceTopic = json["mqttUseDeviceTopic"].as<bool>();
     }
 
-    if (json.containsKey("mqttHAdiscoverable"))
+    if (json["mqttHAdiscoverable"].is<bool>())
     {
         mqttHAdiscoverable = json["mqttHAdiscoverable"].as<bool>();
     }
 
-    if (json.containsKey("luxOffset"))
+    if (json["luxOffset"].is<float>())
     {
         luxOffset = json["luxOffset"].as<float>();
     }
 
-    if (json.containsKey("temperatureOffset"))
+    if (json["temperatureOffset"].is<float>())
     {
         temperatureOffset = json["temperatureOffset"].as<float>();
     }
 
-    if (json.containsKey("humidityOffset"))
+    if (json["humidityOffset"].is<float>())
     {
         humidityOffset = json["humidityOffset"].as<float>();
     }
 
-    if (json.containsKey("pressureOffset"))
+    if (json["pressureOffset"].is<float>())
     {
         pressureOffset = json["pressureOffset"].as<float>();
     }
 
-    if (json.containsKey("gasOffset"))
+    if (json["gasOffset"].is<float>())
     {
         gasOffset = json["gasOffset"].as<float>();
     }
 
-    if (json.containsKey("dfpRXpin"))
+    if (json["dfpRXpin"].is<const char *>())
     {
-        dfpRXPin = json["dfpRXpin"].as<char *>();
+        dfpRXPin = json["dfpRXpin"].as<const char *>();
     }
 
-    if (json.containsKey("dfpTXpin"))
+    if (json["dfpTXpin"].is<const char *>())
     {
-        dfpTXPin = json["dfpTXpin"].as<char *>();
+        dfpTXPin = json["dfpTXpin"].as<const char *>();
     }
 
-    if (json.containsKey("onewirePin"))
+    if (json["onewirePin"].is<const char *>())
     {
-        onewirePin = json["onewirePin"].as<char *>();
+        onewirePin = json["onewirePin"].as<const char *>();
     }
 
-    if (json.containsKey("SCLPin"))
+    if (json["SCLPin"].is<const char *>())
     {
-        SCLPin = json["SCLPin"].as<char *>();
+        SCLPin = json["SCLPin"].as<const char *>();
     }
 
-    if (json.containsKey("SDAPin"))
+    if (json["SDAPin"].is<const char *>())
     {
-        SDAPin = json["SDAPin"].as<char *>();
+        SDAPin = json["SDAPin"].as<const char *>();
     }
 
     for (uint b = 0; b < 3; b++)
     {
-        if (json.containsKey("btn" + String(b) + "Pin"))
+        if (json["btn" + String(b) + "Pin"].is<const char *>())
         {
-            btnPin[b] = json["btn" + String(b) + "Pin"].as<char *>();
+            btnPin[b] = json["btn" + String(b) + "Pin"].as<const char *>();
         }
-        if (json.containsKey("btn" + String(b) + "PressedLevel"))
+        if (json["btn" + String(b) + "PressedLevel"].is<int>())
         {
             btnPressedLevel[b] = json["btn" + String(b) + "PressedLevel"].as<int>();
         }
-        if (json.containsKey("btn" + String(b) + "Enabled"))
+        if (json["btn" + String(b) + "Enabled"].is<bool>())
         {
             btnEnabled[b] = json["btn" + String(b) + "Enabled"].as<bool>();
         }
-        if (json.containsKey("btn" + String(b) + "Action"))
+        if (json["btn" + String(b) + "Action"].is<int>())
         {
             btnAction[b] = static_cast<btnActions>(json["btn" + String(b) + "Action"].as<int>());
         }
     }
 
-    if (json.containsKey("ldrDevice"))
+    if (json["ldrDevice"].is<const char *>())
     {
-        ldrDevice = json["ldrDevice"].as<char *>();
+        ldrDevice = json["ldrDevice"].as<const char *>();
     }
 
-    if (json.containsKey("ldrPulldown"))
+    if (json["ldrPulldown"].is<unsigned long>())
     {
         ldrPulldown = json["ldrPulldown"].as<unsigned long>();
     }
 
-    if (json.containsKey("ldrSmoothing"))
+    if (json["ldrSmoothing"].is<uint>())
     {
         ldrSmoothing = json["ldrSmoothing"].as<uint>();
     }
 
-    if (json.containsKey("initialVolume"))
+    if (json["initialVolume"].is<uint>())
     {
         initialVolume = json["initialVolume"].as<uint>();
     }
 
-    if (json.containsKey("sendTelemetry"))
+    if (json["sendTelemetry"].is<bool>())
     {
         sendTelemetry = json["sendTelemetry"].as<bool>();
     }
 
-    if (json.containsKey("checkUpdateScreen"))
+    if (json["checkUpdateScreen"].is<bool>())
     {
         checkUpdateScreen = json["checkUpdateScreen"].as<bool>();
     }
@@ -913,17 +911,17 @@ void HandleNotFound()
 
 void HandleScreen()
 {
-    DynamicJsonBuffer jsonBuffer;
+    JsonDocument doc;
     String args = String(server.arg("plain").c_str());
-    JsonObject &json = jsonBuffer.parseObject(args.begin());
+    DeserializationError error = deserializeJson(doc, args);
     server.sendHeader(F("Connection"), F("close"));
     server.sendHeader(F("Access-Control-Allow-Origin"), "*");
 
-    if (json.success())
+    if (!error)
     {
         server.send(200, F("application/json"), F("{\"response\":\"OK\"}"));
-        Log(F("HandleScreen"), "Incoming JSON length: " + String(json.measureLength()));
-        CreateFrames(json);
+        Log(F("HandleScreen"), "Incoming JSON length: " + String(measureJson(doc)));
+        CreateFrames(doc);
     }
     else
     {
@@ -933,14 +931,14 @@ void HandleScreen()
 
 void HandleSetConfig()
 {
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &json = jsonBuffer.parseObject(server.arg("plain"));
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, server.arg("plain"));
     server.sendHeader(F("Connection"), F("close"));
 
-    if (json.success())
+    if (!error)
     {
-        Log(F("SetConfig"), "Incoming JSON length: " + String(json.measureLength()));
-        SetConfig(json);
+        Log(F("SetConfig"), "Incoming JSON length: " + String(measureJson(doc)));
+        SetConfig(doc);
         server.send(200, F("application/json"), F("{\"response\":\"OK\"}"));
         delay(500);
         ESP.restart();
@@ -1048,6 +1046,19 @@ void SleepScreen(bool startSleep, bool forceClockOnWake)
     }
 }
 
+#if defined(ESP8266)
+inline void SendWsText(unsigned int clientNum, const String &payload)
+{
+    String mutablePayload = payload;
+    webSocket.sendTXT(static_cast<uint8_t>(clientNum), mutablePayload);
+}
+#else
+inline void SendWsText(unsigned int clientNum, String &payload)
+{
+    webSocket.sendTXT(clientNum, payload);
+}
+#endif
+
 void HandleAndSendButtonPress(uint button, bool state)
 {
     btnLastPublishState[button] = state;
@@ -1067,7 +1078,7 @@ void HandleAndSendButtonPress(uint button, bool state)
     {
         for (uint i = 0; i < sizeof websocketConnection / sizeof websocketConnection[0]; i++)
         {
-            webSocket.sendTXT(i, "{\"buttons\":{\"" + btnAPINames[button] + "\":" + (state ? "true" : "false") + "}}");
+            SendWsText(i, "{\"buttons\":{\"" + btnAPINames[button] + "\":" + (state ? "true" : "false") + "}}");
         }
     }
 
@@ -1119,19 +1130,19 @@ void callback(char *topic, byte *payload, unsigned int length)
             channel = channel.substring(lastSlashIndex + 1);
         }
 
-        DynamicJsonBuffer jsonBuffer;
-        JsonObject &json = jsonBuffer.parseObject(payload);
+        JsonDocument doc;
+        deserializeJson(doc, payload);
 
-        Log("MQTT_callback", "Incoming JSON (Topic: " + String(topic) + ", Cmd: " + channel + ", Bytes: " + String(length) + "/" + String(json.measureLength()) + ") ");
+        Log("MQTT_callback", "Incoming JSON (Topic: " + String(topic) + ", Cmd: " + channel + ", Bytes: " + String(length) + "/" + String(measureJson(doc)) + ") ");
 
-        if (json.measureLength() == 2)
+        if (measureJson(doc) == 2)
         {
             Log("MQTT_callback", "JSON message empty or too long");
             return;
         }
         if (channel.equals("setScreen"))
         {
-            CreateFrames(json);
+            CreateFrames(doc);
         }
         else if (channel.equals("getLuxsensor"))
         {
@@ -1159,7 +1170,7 @@ void callback(char *topic, byte *payload, unsigned int length)
         }
         else if (channel.equals("setConfig"))
         {
-            SetConfig(json);
+            SetConfig(doc);
         }
     }
 }
@@ -1190,56 +1201,56 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
         SendLDR(true);
         SendSensor(true);
         SendConfig();
-        webSocket.sendTXT(num, "{\"buttons\":" + GetButtons() + "}");
-        webSocket.sendTXT(num, "{\"telemetry\":" + GetTelemetry() + "}");
+        SendWsText(num, "{\"buttons\":" + GetButtons() + "}");
+        SendWsText(num, "{\"telemetry\":" + GetTelemetry() + "}");
         break;
     }
     case WStype_TEXT:
     {
         if (((char *)payload)[0] == '{')
         {
-            DynamicJsonBuffer jsonBuffer;
-            JsonObject &json = jsonBuffer.parseObject(payload);
+            JsonDocument doc;
+            deserializeJson(doc, payload);
             int forcedDuration = 0;
 
             // Logging
-            Log(F("WebSocketEvent"), "Incoming JSON (Length: " + String(length) + "/" + String(json.measureLength()) + ")");
-            if (length != json.measureLength())
+            Log(F("WebSocketEvent"), "Incoming JSON (Length: " + String(length) + "/" + String(measureJson(doc)) + ")");
+            if (length != measureJson(doc))
             {
                 Log("MQTT_callback", "JSON length mismatch! JSON Message to long :(");
                 return;
             }
 
-            if (json.containsKey("forcedDuration"))
+            if (doc["forcedDuration"].is<int>())
             {
-                forcedDuration = json["forcedDuration"].as<int>();
+                forcedDuration = doc["forcedDuration"].as<int>();
             }
 
-            if (json.containsKey("setScreen"))
+            if (doc["setScreen"].is<JsonObject>())
             {
-                CreateFrames(json["setScreen"], forcedDuration);
+                CreateFrames(doc["setScreen"], forcedDuration);
             }
-            else if (json.containsKey("setConfig"))
+            else if (doc["setConfig"].is<JsonObject>())
             {
-                SetConfig(json["setConfig"]);
+                SetConfig(doc["setConfig"]);
                 delay(500);
                 ESP.restart();
             }
-            else if (json.containsKey("wifiReset"))
+            else if (doc["wifiReset"].is<bool>())
             {
-                if (json["wifiReset"].as<bool>() == true)
+                if (doc["wifiReset"].as<bool>() == true)
                 {
                     HandelWifiConfigReset();
                 }
             }
-            else if (json.containsKey("factoryReset"))
+            else if (doc["factoryReset"].is<bool>())
             {
-                if (json["factoryReset"].as<bool>() == true)
+                if (doc["factoryReset"].as<bool>() == true)
                 {
                     HandleFactoryReset();
                 }
             }
-            else if (json.containsKey("sendTelemetry"))
+            else if (doc["sendTelemetry"].is<bool>())
             {
                 sendTelemetryPrevMillis = 0;
             }
@@ -1265,25 +1276,23 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
     }
 }
 
-void CreateFrames(JsonObject &json)
+void CreateFrames(JsonDocument doc)
 {
-    CreateFrames(json, 0);
+    CreateFrames(doc, 0);
 }
 
-void CreateFrames(JsonObject &json, int forceDuration)
+void CreateFrames(JsonDocument doc, int forceDuration)
 {
     bool sendMatrixInfo = false;
-
     String logMessage = F("JSON contains ");
 
-    if (json.containsKey("sleepMode"))
+    if (doc["sleepMode"].is<bool>())
     {
-
         logMessage += F("Sleep Control, ");
-        Serial.printf("SleepMode: %s\n", json["sleepMode"].as<bool>() ? "true" : "false");
+        Serial.printf("SleepMode: %s\n", doc["sleepMode"] ? "true" : "false");
 
         // Update internal sleep state
-        bool newSleepMode = json["sleepMode"].as<bool>();
+        bool newSleepMode = doc["sleepMode"];
 
         if (newSleepMode != sleepMode)
         {
@@ -1297,50 +1306,51 @@ void CreateFrames(JsonObject &json, int forceDuration)
             // Restore last frame if sleep mode is disabled
             if (sleepMode == false && currentScreenJsonBuffer.length() > 0)
             {
-                DynamicJsonBuffer jsonBuffer;
-                JsonObject &tmpJson = jsonBuffer.parseObject(currentScreenJsonBuffer);
-                CreateFrames(tmpJson);
+                JsonDocument tmpDoc;
+                deserializeJson(tmpDoc, currentScreenJsonBuffer);
+                CreateFrames(tmpDoc);
                 return;
             }
         }
     }
 
     // Ist eine Display Helligkeit übergeben worden?
-    if (json.containsKey("brightness") && !sleepMode)
+    if (doc["brightness"].is<int>() && !sleepMode)
     {
         logMessage += F("Brightness Control, ");
 
-        if (json["brightness"].as<int>() != currentMatrixBrightness)
+        if (doc["brightness"].as<int>() != currentMatrixBrightness)
         {
             sendMatrixInfo = true;
-            currentMatrixBrightness = json["brightness"].as<int>();
+            currentMatrixBrightness = doc["brightness"];
             matrix->setBrightness(currentMatrixBrightness);
             matrix->show();
         }
     }
 
     // Enable/Disable automatic brightness control
-    if (json.containsKey("autobrightness"))
+    if (doc["autobrightness"].is<bool>())
     {
         logMessage += F("Brightness Automatic Control, ");
-        if (json["autobrightness"].as<bool>() != matrixBrightnessAutomatic)
+        if (doc["autobrightness"].as<bool>() != matrixBrightnessAutomatic)
         {
             sendMatrixInfo = true;
-            matrixBrightnessAutomatic = json["autobrightness"].as<bool>();
+            matrixBrightnessAutomatic = doc["autobrightness"];
         }
     }
 
     // Set GPIO
-    if (json.containsKey("setGpio"))
+    if (doc["setGpio"].is<JsonObject>())
     {
+        JsonObject setGpio = doc["setGpio"];
         logMessage += F("Set Gpio, ");
-        if (json["setGpio"]["set"].is<bool>() && json["setGpio"]["gpio"].is<uint8_t>())
+        if (setGpio["set"].is<bool>() && setGpio["gpio"].is<uint8_t>())
         {
-            uint8_t gpio = json["setGpio"]["gpio"].as<uint8_t>();
+            uint8_t gpio = setGpio["gpio"];
 
             // If the GPIO is already present in the array?
             // has been found, this is to be replaced.
-            if (json["setGpio"]["duration"].is<ulong>())
+            if (setGpio["duration"].is<ulong>())
             {
                 int arrayIndex = -1;
                 for (int i = 0; i < SET_GPIO_SIZE; i++)
@@ -1372,61 +1382,62 @@ void CreateFrames(JsonObject &json, int forceDuration)
                 {
                     // Save data in array for the reset.
                     setGPIOReset[arrayIndex].gpio = gpio;
-                    setGPIOReset[arrayIndex].resetMillis = (millis() + json["setGpio"]["duration"].as<ulong>());
-                    Log(F("SetGPIO"), "Pos: " + String(arrayIndex) + ", GPIO: " + String(gpio) + ", Duration: " + String(json["setGpio"]["duration"].as<char *>()) + ", Value: " + json["setGpio"]["set"].as<char *>());
+                    setGPIOReset[arrayIndex].resetMillis = (millis() + setGpio["duration"].as<ulong>());
+                    Log(F("SetGPIO"), "Pos: " + String(arrayIndex) + ", GPIO: " + String(gpio) + ", Duration: " + String(setGpio["duration"].as<const char *>()) + ", Value: " + setGpio["set"].as<const char *>());
                 }
             }
             else
             {
-                Log(F("SetGPIO"), "GPIO: " + String(gpio) + ", Value: " + json["setGpio"]["set"].as<char *>());
+                Log(F("SetGPIO"), "GPIO: " + String(gpio) + ", Value: " + setGpio["set"].as<const char *>());
             }
             // Set GPIO
             pinMode(gpio, OUTPUT);
-            digitalWrite(gpio, json["setGpio"]["set"].as<bool>());
+            digitalWrite(gpio, setGpio["set"].as<bool>());
         }
     }
 
     // Sound
-    if (json.containsKey("sound"))
+    if (doc["sound"].is<JsonObject>())
     {
+        JsonObject sound = doc["sound"];
         logMessage += F("Sound, ");
         // Volume
-        if (json["sound"]["volume"] != NULL && json["sound"]["volume"].is<int>())
+        if (sound["volume"].is<uint8_t>())
         {
-            mp3Player.volume(json["sound"]["volume"].as<int>());
+            mp3Player.volume(sound["volume"]);
 
             // Sometimes, mp3Player gets hickups. A brief delay might help - but also might hinder scrolling.
             // So, do it only if there are more commands to come.
-            if (json["sound"]["control"].as<String>() == "")
+            if (sound["control"].as<String>() == "")
             {
                 Log(F("Sound"), F("Changing volume can prevent DFPlayer from executing a control command at the same time. Better make two separate API calls."));
                 delay(200);
             }
         }
         // Play
-        if (json["sound"]["control"] == "play")
+        if (sound["control"] == "play" && sound["file"].is<uint8_t>())
         {
-            if (json["sound"]["folder"])
+            if (sound["folder"].is<uint8_t>())
             {
-                mp3Player.playFolder(json["sound"]["folder"].as<int>(), json["sound"]["file"].as<int>());
+                mp3Player.playFolder(sound["folder"], sound["file"]);
             }
             else
             {
-                mp3Player.play(json["sound"]["file"].as<int>());
+                mp3Player.play(sound["file"]);
             }
         }
         // Stop
-        else if (json["sound"]["control"] == "pause")
+        else if (sound["control"] == "pause")
         {
             mp3Player.pause();
         }
         // Play Next
-        else if (json["sound"]["control"] == "next")
+        else if (sound["control"] == "next")
         {
             mp3Player.playNext();
         }
         // Play Previous
-        else if (json["sound"]["control"] == "previous")
+        else if (sound["control"] == "previous")
         {
             mp3Player.playPrevious();
         }
@@ -1436,12 +1447,12 @@ void CreateFrames(JsonObject &json, int forceDuration)
     // - no sleepmode control is in message
     // - not sleeping
     // - no forced screen is active OR forceDuration is set
-    if (!json.containsKey("sleepMode") && !sleepMode && (millis() >= forcedScreenIsActiveUntil || forceDuration > 0))
+    if (!doc["sleepMode"].is<bool>() && !sleepMode && (millis() >= forcedScreenIsActiveUntil || forceDuration > 0))
     {
         matrix->setBrightness(currentMatrixBrightness);
 
         // Prüfung für die Unterbrechnung der lokalen Schleifen
-        if (json.containsKey("bitmap") || json.containsKey("bitmaps") || json.containsKey("text") || json.containsKey("bar") || json.containsKey("bars") || json.containsKey("bitmapAnimation"))
+        if (doc["bitmap"].is<JsonObject>() || doc["bitmaps"].is<JsonArray>() || doc["text"].is<JsonObject>() || doc["bar"].is<JsonObject>() || doc["bars"].is<JsonArray>() || doc["bitmapAnimation"].is<JsonObject>())
         {
             lastScreenMessageMillis = millis();
             clockAktiv = false;
@@ -1454,30 +1465,31 @@ void CreateFrames(JsonObject &json, int forceDuration)
         bool coloredBarWipeAnimationAktiv = false;
         bool zigzagWipeAnimationAktiv = false;
         bool bitmapWipeAnimationAktiv = false;
-        if (json.containsKey("switchAnimation"))
+        if (doc["switchAnimation"].is<JsonObject>())
         {
+            JsonObject switchAnimation = doc["switchAnimation"];
             logMessage += F("SwitchAnimation, ");
             // Switch Animation aktiv?
-            if (json["switchAnimation"]["aktiv"])
+            if (switchAnimation["aktiv"])
             {
                 // Fade Animation aktiv?
-                if (json["switchAnimation"]["animation"] == "fade")
+                if (switchAnimation["animation"] == "fade")
                 {
                     fadeAnimationAktiv = true;
                 }
-                else if (json["switchAnimation"]["animation"] == "coloredBarWipe")
+                else if (switchAnimation["animation"] == "coloredBarWipe")
                 {
                     coloredBarWipeAnimationAktiv = true;
                 }
-                else if (json["switchAnimation"]["animation"] == "zigzagWipe")
+                else if (switchAnimation["animation"] == "zigzagWipe")
                 {
                     zigzagWipeAnimationAktiv = true;
                 }
-                else if (json["switchAnimation"]["animation"] == "bitmapWipe")
+                else if (switchAnimation["animation"] == "bitmapWipe")
                 {
                     bitmapWipeAnimationAktiv = true;
                 }
-                else if (json["switchAnimation"]["animation"] == "random")
+                else if (switchAnimation["animation"] == "random")
                 {
                     switch (millis() % 3)
                     {
@@ -1493,42 +1505,43 @@ void CreateFrames(JsonObject &json, int forceDuration)
                     }
                 }
             }
-        }
 
-        // Fade aktiv?
-        if (fadeAnimationAktiv)
-        {
-            FadeOut();
-        }
-        else if (coloredBarWipeAnimationAktiv)
-        {
-            ColoredBarWipe();
-        }
-        else if (zigzagWipeAnimationAktiv)
-        {
-            uint8_t r = 255;
-            uint8_t g = 255;
-            uint8_t b = 255;
-            if (json["switchAnimation"]["hexColor"].as<char *>() != NULL)
+            // Fade aktiv?
+            if (fadeAnimationAktiv)
             {
-                HEXtoRGB(json["switchAnimation"]["hexColor"].as<char *>(), r, g, b);
+                FadeOut();
             }
-            else if (json["switchAnimation"]["color"]["r"].as<char *>() != NULL)
+            else if (coloredBarWipeAnimationAktiv)
             {
-                r = json["switchAnimation"]["color"]["r"].as<uint8_t>();
-                g = json["switchAnimation"]["color"]["g"].as<uint8_t>();
-                b = json["switchAnimation"]["color"]["b"].as<uint8_t>();
+                ColoredBarWipe();
             }
-            ZigZagWipe(r, g, b);
-        }
-        else if (bitmapWipeAnimationAktiv)
-        {
-            BitmapWipe(json["switchAnimation"]["data"].as<JsonArray>(), json["switchAnimation"]["width"].as<uint8_t>());
+            else if (zigzagWipeAnimationAktiv)
+            {
+                uint8_t r = 255;
+                uint8_t g = 255;
+                uint8_t b = 255;
+                if (switchAnimation["hexColor"].is<const char *>())
+                {
+                    HEXtoRGB(switchAnimation["hexColor"], r, g, b);
+                }
+                else if (switchAnimation["color"]["r"].is<uint8_t>() && switchAnimation["color"]["g"].is<uint8_t>() && switchAnimation["color"]["b"].is<uint8_t>())
+                {
+                    r = switchAnimation["color"]["r"];
+                    g = switchAnimation["color"]["g"];
+                    b = switchAnimation["color"]["b"];
+                }
+                ZigZagWipe(r, g, b);
+            }
+            else if (bitmapWipeAnimationAktiv)
+            {
+                BitmapWipe(switchAnimation["data"], switchAnimation["width"]);
+            }
         }
 
         // Clock
-        if (json.containsKey("clock"))
+        if (doc["clock"].is<JsonObject>())
         {
+            JsonObject clock = doc["clock"];
             logMessage += F("InternalClock Control, Params: (");
             scrollTextAktivLoop = false;
             animateBMPAktivLoop = false;
@@ -1537,64 +1550,64 @@ void CreateFrames(JsonObject &json, int forceDuration)
             clockCounterClock = 0;
             clockCounterDate = 0;
 
-            bool isSwitchAktivSet = json["clock"]["switchAktiv"].is<bool>();
+            bool isSwitchAktivSet = clock["switchAktiv"].is<bool>();
             if (isSwitchAktivSet)
             {
                 logMessage += F("clockSwitchAktiv, ");
-                clockSwitchAktiv = json["clock"]["switchAktiv"];
+                clockSwitchAktiv = clock["switchAktiv"];
             }
 
-            bool isClockSwitchSecSet = json["clock"]["switchSec"] != NULL;
+            bool isClockSwitchSecSet = clock["switchSec"].is<uint>();
             if (clockSwitchAktiv && isClockSwitchSecSet)
             {
                 logMessage += F("clockSwitchSec, ");
-                clockSwitchSec = json["clock"]["switchSec"];
+                clockSwitchSec = clock["switchSec"];
             }
 
-            bool isClockWithSecondsSet = json["clock"]["withSeconds"].is<bool>();
+            bool isClockWithSecondsSet = clock["withSeconds"].is<bool>();
             if (isClockWithSecondsSet)
             {
                 logMessage += F("withSeconds, ");
-                clockWithSeconds = json["clock"]["withSeconds"];
+                clockWithSeconds = clock["withSeconds"];
             }
 
-            bool isClockBlinkAnimatedSet = json["clock"]["blinkAnimated"].is<bool>();
+            bool isClockBlinkAnimatedSet = clock["blinkAnimated"].is<bool>();
             if (isClockBlinkAnimatedSet)
             {
                 logMessage += F("blinkAnimated, ");
-                clockBlinkAnimated = json["clock"]["blinkAnimated"];
+                clockBlinkAnimated = clock["blinkAnimated"];
             }
 
-            bool isFatFontSet = json["clock"]["fatFont"].is<bool>();
+            bool isFatFontSet = clock["fatFont"].is<bool>();
             if (isFatFontSet)
             {
                 logMessage += F("fatFont, ");
-                clockFatFont = json["clock"]["fatFont"];
+                clockFatFont = clock["fatFont"];
             }
-            bool isLargeFontSet = json["clock"]["largeFont"].is<bool>();
+            bool isLargeFontSet = clock["largeFont"].is<bool>();
             if (isLargeFontSet)
             {
                 logMessage += F("largeFont, ");
-                clockLargeFont = json["clock"]["largeFont"];
+                clockLargeFont = clock["largeFont"];
             }
-            bool isDrawWeekDaysSet = json["clock"]["drawWeekDays"].is<bool>();
+            bool isDrawWeekDaysSet = clock["drawWeekDays"].is<bool>();
             if (isDrawWeekDaysSet)
             {
                 logMessage += F("drawWeekDays, ");
-                clockDrawWeekDays = json["clock"]["drawWeekDays"];
+                clockDrawWeekDays = clock["drawWeekDays"];
             }
 
-            if (json["clock"]["color"]["r"].as<char *>() != NULL)
+            if (clock["color"]["r"].is<uint8_t>() && clock["color"]["g"].is<uint8_t>() && clock["color"]["b"].is<uint8_t>())
             {
                 logMessage += F("color, ");
-                clockColorR = json["clock"]["color"]["r"].as<uint8_t>();
-                clockColorG = json["clock"]["color"]["g"].as<uint8_t>();
-                clockColorB = json["clock"]["color"]["b"].as<uint8_t>();
+                clockColorR = clock["color"]["r"];
+                clockColorG = clock["color"]["g"];
+                clockColorB = clock["color"]["b"];
             }
-            else if (json["clock"]["hexColor"].as<char *>() != NULL)
+            else if (clock["hexColor"].is<const char *>())
             {
                 logMessage += F("hexColor, ");
-                HEXtoRGB(json["clock"]["hexColor"].as<char *>(), clockColorR, clockColorG, clockColorB);
+                HEXtoRGB(clock["hexColor"], clockColorR, clockColorG, clockColorB);
             }
             if (logMessage.endsWith(", "))
             {
@@ -1604,61 +1617,62 @@ void CreateFrames(JsonObject &json, int forceDuration)
             DrawClock(true);
         }
 
-        if (json.containsKey("bitmap") || json.containsKey("bitmaps") || json.containsKey("bitmapAnimation") || json.containsKey("text") || json.containsKey("bar") || json.containsKey("bars"))
+        if (doc["bitmap"].is<JsonObject>() || doc["bitmaps"].is<JsonArray>() || doc["bitmapAnimation"].is<JsonObject>() || doc["text"].is<JsonObject>() || doc["bar"].is<JsonObject>() || doc["bars"].is<JsonArray>())
         {
             // Alle Pixel löschen
             matrix->clear();
         }
 
         // Bar
-        if (json.containsKey("bar"))
+        if (doc["bar"].is<JsonObject>())
         {
+            JsonObject bar = doc["bar"];
             logMessage += F("Bar, ");
-            uint8_t r, g, b;
-            if (json["bar"]["hexColor"].as<char *>() != NULL)
+            uint8_t r = 0, g = 0, b = 0;
+            if (bar["hexColor"].is<const char *>())
             {
-                HEXtoRGB(json["bar"]["hexColor"].as<char *>(), r, g, b);
+                HEXtoRGB(bar["hexColor"], r, g, b);
             }
-            else
+            else if (bar["color"]["r"].is<uint8_t>() && bar["color"]["g"].is<uint8_t>() && bar["color"]["b"].is<uint8_t>())
             {
-                r = json["bar"]["color"]["r"].as<uint8_t>();
-                g = json["bar"]["color"]["g"].as<uint8_t>();
-                b = json["bar"]["color"]["b"].as<uint8_t>();
+                r = bar["color"]["r"];
+                g = bar["color"]["g"];
+                b = bar["color"]["b"];
             }
-            matrix->drawLine(json["bar"]["position"]["x"], json["bar"]["position"]["y"], json["bar"]["position"]["x2"], json["bar"]["position"]["y2"], matrix->Color(r, g, b));
+            matrix->drawLine(bar["position"]["x"], bar["position"]["y"], bar["position"]["x2"], bar["position"]["y2"], matrix->Color(r, g, b));
         }
 
         // Bars
-        if (json.containsKey("bars"))
+        if (doc["bars"].is<JsonArray>())
         {
             logMessage += F("Bars, ");
-            for (JsonVariant x : json["bars"].as<JsonArray>())
+            for (JsonVariant x : doc["bars"].as<JsonArray>())
             {
-                uint8_t r, g, b;
-                if (x["hexColor"].as<char *>() != NULL)
+                uint8_t r = 0, g = 0, b = 0;
+                if (x["hexColor"].is<const char *>())
                 {
-                    HEXtoRGB(x["hexColor"].as<char *>(), r, g, b);
+                    HEXtoRGB(x["hexColor"], r, g, b);
                 }
-                else
+                else if (x["color"]["r"].is<uint8_t>() && x["color"]["g"].is<uint8_t>() && x["color"]["b"].is<uint8_t>())
                 {
-                    r = x["color"]["r"].as<uint8_t>();
-                    g = x["color"]["g"].as<uint8_t>();
-                    b = x["color"]["b"].as<uint8_t>();
+                    r = x["color"]["r"];
+                    g = x["color"]["g"];
+                    b = x["color"]["b"];
                 }
                 matrix->drawLine(x["position"]["x"], x["position"]["y"], x["position"]["x2"], x["position"]["y2"], matrix->Color(r, g, b));
             }
         }
 
         // clear withBMP only if no sleepMode is in the same message
-        if (!json.containsKey("sleepMode"))
+        if (!doc["sleepMode"].is<bool>())
         {
             withBMP = false;
         }
 
         // Restore withBMP from (stored) message
-        if (json.containsKey("withBMPRestore"))
+        if (doc["withBMPRestore"].is<bool>())
         {
-            withBMP = json["withBMPRestore"];
+            withBMP = doc["withBMPRestore"];
             if (withBMP == true)
             {
                 matrix->drawRGBBitmap(bmpPosX, bmpPosY, bmpArray, bmpWidth, bmpHeight);
@@ -1666,46 +1680,47 @@ void CreateFrames(JsonObject &json, int forceDuration)
         }
 
         // Restore a animateBMPAktivLoop from (stored) message
-        if (json.containsKey("animateBMPAktivLoopRestore"))
+        if (doc["animateBMPAktivLoopRestore"].is<bool>())
         {
-            animateBMPAktivLoop = json["animateBMPAktivLoopRestore"];
+            animateBMPAktivLoop = doc["animateBMPAktivLoopRestore"];
         }
 
         // Ist ein Bitmap übergeben worden?
-        if (json.containsKey("bitmap"))
+        if (doc["bitmap"].is<JsonObject>())
         {
             logMessage += F("Bitmap, ");
-            DrawSingleBitmap(json["bitmap"]);
+            DrawSingleBitmap(doc["bitmap"]);
         }
 
         // Sind mehrere Bitmaps übergeben worden?
-        if (json.containsKey("bitmaps"))
+        if (doc["bitmaps"].is<JsonArray>())
         {
             logMessage += F("Bitmaps (");
-            for (JsonVariant singleBitmap : json["bitmaps"].as<JsonArray>())
+            for (JsonVariant singleBitmap : doc["bitmaps"].as<JsonArray>())
             {
                 DrawSingleBitmap(singleBitmap);
             }
-            logMessage += json["bitmaps"].as<JsonArray>().size();
+            logMessage += doc["bitmaps"].as<JsonArray>().size();
             logMessage += F("), ");
         }
 
         // Ist eine BitmapAnimation übergeben worden?
-        if (json.containsKey("bitmapAnimation"))
+        if (doc["bitmapAnimation"].is<JsonObject>())
         {
+            JsonObject bitmapAnimation = doc["bitmapAnimation"];
             bmpPosX = 0;
             bmpPosY = 0;
             bmpWidth = 8;
             bmpHeight = 8;
-            if (json["bitmapAnimation"]["position"]["x"].is<int16_t>() && json["bitmapAnimation"]["position"]["y"].is<int16_t>())
+            if (bitmapAnimation["position"]["x"].is<int16_t>() && bitmapAnimation["position"]["y"].is<int16_t>())
             {
-                bmpPosX = json["bitmapAnimation"]["position"]["x"].as<int16_t>();
-                bmpPosY = json["bitmapAnimation"]["position"]["y"].as<int16_t>();
+                bmpPosX = bitmapAnimation["position"]["x"];
+                bmpPosY = bitmapAnimation["position"]["y"];
             }
-            if (json["bitmapAnimation"]["size"]["width"].is<int16_t>() && json["bitmapAnimation"]["size"]["height"].is<int16_t>())
+            if (bitmapAnimation["size"]["width"].is<int16_t>() && bitmapAnimation["size"]["height"].is<int16_t>())
             {
-                bmpWidth = json["bitmapAnimation"]["size"]["width"].as<int16_t>();
-                bmpHeight = json["bitmapAnimation"]["size"]["height"].as<int16_t>();
+                bmpWidth = bitmapAnimation["size"]["width"];
+                bmpHeight = bitmapAnimation["size"]["height"];
             }
             withBMP = true;
 
@@ -1717,10 +1732,10 @@ void CreateFrames(JsonObject &json, int forceDuration)
             }
 
             int counter = 0;
-            for (JsonVariant x : json["bitmapAnimation"]["data"].as<JsonArray>())
+            for (JsonVariant x : bitmapAnimation["data"].as<JsonArray>())
             {
                 // JsonArray in IntArray konvertieren
-                x.as<JsonArray>().copyTo(bmpArray);
+                copyArray(x.as<JsonArray>(), bmpArray);
                 // Speichern für die Ausgabe
                 for (int i = 0; i < 64; i++)
                 {
@@ -1731,13 +1746,13 @@ void CreateFrames(JsonObject &json, int forceDuration)
 
             // Serial.printf("Counter: %d\n", counter);
 
-            animateBMPDelay = json["bitmapAnimation"]["animationDelay"];
-            animateBMPRubberbandingAktiv = json["bitmapAnimation"]["rubberbanding"];
+            animateBMPDelay = bitmapAnimation["animationDelay"];
+            animateBMPRubberbandingAktiv = bitmapAnimation["rubberbanding"];
 
             animateBMPLimitLoops = 0;
-            if (json["bitmapAnimation"]["limitLoops"])
+            if (bitmapAnimation["limitLoops"].is<int>())
             {
-                animateBMPLimitLoops = json["bitmapAnimation"]["limitLoops"].as<int>();
+                animateBMPLimitLoops = bitmapAnimation["limitLoops"];
             }
 
             // Hier einmal den Counter zurücksetzten
@@ -1751,58 +1766,58 @@ void CreateFrames(JsonObject &json, int forceDuration)
 
         // Ist ein Text übergeben worden?
         bool scrollTextAktiv = false;
-        if (json.containsKey("text"))
+        if (doc["text"].is<JsonObject>())
         {
+            JsonObject text = doc["text"];
             logMessage += F("Text, ");
             // Always assume the default delay first.
             scrollTextDelay = scrollTextDefaultDelay;
 
             // Is ScrollText auto or true selected?
-            scrollTextAktiv = ((json["text"]["scrollText"] == "auto" || ((json["text"]["scrollText"]).is<bool>() && json["text"]["scrollText"])));
+            scrollTextAktiv = text["scrollText"] == "auto" || (text["scrollText"].is<bool>() && text["scrollText"]);
 
             uint8_t r, g, b;
-            if (json["text"]["hexColor"].as<char *>() != NULL)
+            if (text["hexColor"].is<const char *>())
             {
-                HEXtoRGB(json["text"]["hexColor"].as<char *>(), r, g, b);
+                HEXtoRGB(text["hexColor"], r, g, b);
             }
-            else
+            else if (text["color"]["r"].is<uint8_t>() && text["color"]["g"].is<uint8_t>() && text["color"]["b"].is<uint8_t>())
             {
-                r = json["text"]["color"]["r"].as<uint8_t>();
-                g = json["text"]["color"]["g"].as<uint8_t>();
-                b = json["text"]["color"]["b"].as<uint8_t>();
+                r = text["color"]["r"];
+                g = text["color"]["g"];
+                b = text["color"]["b"];
             }
 
             // Is ScrollText auto or true selected?
             if (scrollTextAktiv)
             {
+                bool centerText = text["centerText"];
 
-                bool centerText = json["text"]["centerText"];
-
-                bool fadeInRequired = ((json.containsKey("bars") || json.containsKey("bar") || json.containsKey("bitmap") || json.containsKey("bitmapAnimation")) && fadeAnimationAktiv);
+                bool fadeInRequired = ((doc["bars"].is<JsonArray>() || doc["bar"].is<JsonObject>() || doc["bitmap"].is<JsonObject>() || doc["bitmapAnimation"].is<JsonObject>()) && fadeAnimationAktiv);
 
                 // Wurde ein Benutzerdefeniertes Delay übergeben?
-                if (json["text"]["scrollTextDelay"])
+                if (text["scrollTextDelay"])
                 {
-                    scrollTextDelay = json["text"]["scrollTextDelay"];
+                    scrollTextDelay = text["scrollTextDelay"];
                 }
 
-                if (!(json["text"]["scrollText"]).is<bool>() && json["text"]["scrollText"] == "auto")
+                if (!(text["scrollText"]).is<bool>() && text["scrollText"] == "auto")
                 {
-                    DrawAutoTextScrolled(json["text"]["textString"], json["text"]["bigFont"], centerText, fadeInRequired, r, g, b, json["text"]["position"]["x"], json["text"]["position"]["y"]);
+                    DrawAutoTextScrolled(text["textString"], text["bigFont"], centerText, fadeInRequired, r, g, b, text["position"]["x"], text["position"]["y"]);
                 }
                 else
                 {
-                    DrawTextScrolled(json["text"]["textString"], json["text"]["bigFont"], centerText, fadeInRequired, r, g, b, json["text"]["position"]["x"], json["text"]["position"]["y"]);
+                    DrawTextScrolled(text["textString"], text["bigFont"], centerText, fadeInRequired, r, g, b, text["position"]["x"], text["position"]["y"]);
                 }
             }
             // is centerText selected?
-            else if (json["text"]["centerText"])
+            else if (text["centerText"])
             {
-                DrawTextCenter(json["text"]["textString"], json["text"]["bigFont"], r, g, b, json["text"]["position"]["x"], json["text"]["position"]["y"]);
+                DrawTextCenter(text["textString"], text["bigFont"], r, g, b, text["position"]["x"], text["position"]["y"]);
             }
             else
             {
-                DrawText(json["text"]["textString"], json["text"]["bigFont"], r, g, b, json["text"]["position"]["x"], json["text"]["position"]["y"]);
+                DrawText(text["textString"], text["bigFont"], r, g, b, text["position"]["x"], text["position"]["y"]);
             }
         }
 
@@ -1819,7 +1834,7 @@ void CreateFrames(JsonObject &json, int forceDuration)
         }
     }
 
-    if (sleepMode && !json.containsKey("sleepMode"))
+    if (sleepMode && !doc["sleepMode"].is<bool>())
     {
         logMessage += F("[not all data processed because sleepMode is active]");
     }
@@ -1829,24 +1844,24 @@ void CreateFrames(JsonObject &json, int forceDuration)
         logMessage.remove(logMessage.length() - 2);
         logMessage += F(" ");
     }
-    Log(F("CreateFrames"), logMessage + "(Length: " + json.measureLength() + ")");
+    Log(F("CreateFrames"), logMessage + "(Length: " + measureJson(doc) + ")");
 
-    if (forceDuration > 0 && (json.containsKey("bitmap") || json.containsKey("bitmaps") || json.containsKey("text") || json.containsKey("bar") || json.containsKey("bars") || json.containsKey("bitmapAnimation")))
+    if (forceDuration > 0 && (doc["bitmap"].is<JsonObject>() || doc["bitmaps"].is<JsonArray>() || doc["text"].is<JsonObject>() || doc["bar"].is<JsonObject>() || doc["bars"].is<JsonArray>() || doc["bitmapAnimation"].is<JsonObject>()))
     {
         forcedScreenIsActiveUntil = millis() + forceDuration;
     }
 
-    if (!json.containsKey("sleepMode") && !sleepMode)
+    if (!doc["sleepMode"].is<bool>() && !sleepMode)
     {
         // Store last frame
 
-        json.remove("bitmap");
-        json.remove("bitmaps");
-        json.remove("bitmapAnimation");
-        json["withBMPRestore"] = withBMP;
-        json["animateBMPAktivLoopRestore"] = animateBMPAktivLoop;
+        doc.remove("bitmap");
+        doc.remove("bitmaps");
+        doc.remove("bitmapAnimation");
+        doc["withBMPRestore"] = withBMP;
+        doc["animateBMPAktivLoopRestore"] = animateBMPAktivLoop;
         currentScreenJsonBuffer = "";
-        json.printTo(currentScreenJsonBuffer);
+        serializeJson(doc, currentScreenJsonBuffer);
     }
 
     if (sendMatrixInfo)
@@ -1871,15 +1886,14 @@ String GetConfig()
         std::unique_ptr<char[]> buf(new char[size]);
 
         configFile.readBytes(buf.get(), size);
-        DynamicJsonBuffer jsonBuffer;
-        JsonObject &root = jsonBuffer.parseObject(buf.get());
+        JsonDocument doc;
+        deserializeJson(doc, buf.get());
 
         // add current vbat pin to show button on webinterface or not
-        root["showBatteryBtn"] = VBAT_PIN > 0 ? true : false;
+        doc["showBatteryBtn"] = VBAT_PIN > 0 ? true : false;
 
         String json;
-        root.printTo(json);
-
+        serializeJson(doc, json);
         return json;
     }
     return "";
@@ -1887,32 +1901,31 @@ String GetConfig()
 
 String GetSensor()
 {
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
+    JsonDocument doc;
     if (tempSensor == TempSensor_BME280)
     {
         const float currentTemp = bme280->readTemperature();
-        root["temperature"] = currentTemp + temperatureOffset;
-        root["humidity"] = bme280->readHumidity() + humidityOffset;
-        root["pressure"] = (bme280->readPressure() / 100.0F) + pressureOffset;
-        root["gas"] = "Not installed";
+        doc["temperature"] = currentTemp + temperatureOffset;
+        doc["humidity"] = bme280->readHumidity() + humidityOffset;
+        doc["pressure"] = (bme280->readPressure() / 100.0F) + pressureOffset;
+        doc["gas"] = "Not installed";
 
         if (temperatureUnit == TemperatureUnit_Fahrenheit)
         {
-            root["temperature"] = CelsiusToFahrenheit(currentTemp) + temperatureOffset;
+            doc["temperature"] = CelsiusToFahrenheit(currentTemp) + temperatureOffset;
         }
     }
     else if (tempSensor == TempSensor_DHT)
     {
         const float currentTemp = dht.getTemperature();
-        root["temperature"] = currentTemp + temperatureOffset;
-        root["humidity"] = roundf(dht.getHumidity() + humidityOffset);
-        root["pressure"] = "Not installed";
-        root["gas"] = "Not installed";
+        doc["temperature"] = currentTemp + temperatureOffset;
+        doc["humidity"] = roundf(dht.getHumidity() + humidityOffset);
+        doc["pressure"] = "Not installed";
+        doc["gas"] = "Not installed";
 
         if (temperatureUnit == TemperatureUnit_Fahrenheit)
         {
-            root["temperature"] = CelsiusToFahrenheit(currentTemp) + temperatureOffset;
+            doc["temperature"] = CelsiusToFahrenheit(currentTemp) + temperatureOffset;
         }
     }
     else if (tempSensor == TempSensor_BME680)
@@ -1947,13 +1960,13 @@ String GetSensor()
             bme680->beginReading(); // start measurement process
             // return previous values
             const float currentTemp = bme680->temperature;
-            root["temperature"] = currentTemp + temperatureOffset;
-            root["humidity"] = bme680->humidity + humidityOffset;
-            root["pressure"] = (bme680->pressure / 100.0F) + pressureOffset;
-            root["gas"] = (bme680->gas_resistance / 1000.0F) + gasOffset;
+            doc["temperature"] = currentTemp + temperatureOffset;
+            doc["humidity"] = bme680->humidity + humidityOffset;
+            doc["pressure"] = (bme680->pressure / 100.0F) + pressureOffset;
+            doc["gas"] = (bme680->gas_resistance / 1000.0F) + gasOffset;
             if (temperatureUnit == TemperatureUnit_Fahrenheit)
             {
-                root["temperature"] = CelsiusToFahrenheit(currentTemp) + temperatureOffset;
+                doc["temperature"] = CelsiusToFahrenheit(currentTemp) + temperatureOffset;
             }
         }
 
@@ -1966,67 +1979,67 @@ String GetSensor()
             {
                 lastBME680read = millis();
                 const float currentTemp = bme680->temperature;
-                root["temperature"] = currentTemp + temperatureOffset;
-                root["humidity"] = bme680->humidity + humidityOffset;
-                root["pressure"] = (bme680->pressure / 100.0F) + pressureOffset;
-                root["gas"] = (bme680->gas_resistance / 1000.0F) + gasOffset;
+                doc["temperature"] = currentTemp + temperatureOffset;
+                doc["humidity"] = bme680->humidity + humidityOffset;
+                doc["pressure"] = (bme680->pressure / 100.0F) + pressureOffset;
+                doc["gas"] = (bme680->gas_resistance / 1000.0F) + gasOffset;
                 if (temperatureUnit == TemperatureUnit_Fahrenheit)
                 {
-                    root["temperature"] = CelsiusToFahrenheit(currentTemp) + temperatureOffset;
+                    doc["temperature"] = CelsiusToFahrenheit(currentTemp) + temperatureOffset;
                 }
             }
             else
             {
-                root["humidity"] = "Error while reading";
-                root["temperature"] = "Error while reading";
-                root["pressure"] = "Error while reading";
-                root["gas"] = "Error while reading";
+                doc["humidity"] = "Error while reading";
+                doc["temperature"] = "Error while reading";
+                doc["pressure"] = "Error while reading";
+                doc["gas"] = "Error while reading";
             }
         }
     }
     else if (tempSensor == TempSensor_BMP280)
     {
         const float currentTemp = bmp280->readTemperature();
-        root["temperature"] = currentTemp + temperatureOffset;
-        // root["humidity"] = bmp280->readHumidity() + humidityOffset;
-        root["humidity"] = "Not installed";
-        root["pressure"] = (bmp280->readPressure() / 100.0F) + pressureOffset;
-        root["gas"] = "Not installed";
+        doc["temperature"] = currentTemp + temperatureOffset;
+        // doc["humidity"] = bmp280->readHumidity() + humidityOffset;
+        doc["humidity"] = "Not installed";
+        doc["pressure"] = (bmp280->readPressure() / 100.0F) + pressureOffset;
+        doc["gas"] = "Not installed";
 
         if (temperatureUnit == TemperatureUnit_Fahrenheit)
         {
-            root["temperature"] = CelsiusToFahrenheit(currentTemp) + temperatureOffset;
+            doc["temperature"] = CelsiusToFahrenheit(currentTemp) + temperatureOffset;
         }
     }
     else if (tempSensor == TempSensor_SHT31)
     {
         const float currentTemp = sht31.readTemperature();
         const float currentHumi = sht31.readHumidity();
-        root["temperature"] = currentTemp + temperatureOffset;
-        root["humidity"] = roundf(currentHumi + humidityOffset);
-        root["pressure"] = "Not installed";
-        root["gas"] = "Not installed";
+        doc["temperature"] = currentTemp + temperatureOffset;
+        doc["humidity"] = roundf(currentHumi + humidityOffset);
+        doc["pressure"] = "Not installed";
+        doc["gas"] = "Not installed";
     }
     else
     {
-        root["humidity"] = "Not installed";
-        root["temperature"] = "Not installed";
-        root["pressure"] = "Not installed";
-        root["gas"] = "Not installed";
+        doc["humidity"] = "Not installed";
+        doc["temperature"] = "Not installed";
+        doc["pressure"] = "Not installed";
+        doc["gas"] = "Not installed";
     }
 
     if (VBAT_PIN > 0)
     {
-        root["battery"] = batteryLevel;
+        doc["battery"] = batteryLevel;
     }
     else
     {
-        root["battery"] = "Not installed";
+        doc["battery"] = "Not installed";
     }
-    root["hostname"] = hostname;
+    doc["hostname"] = hostname;
 
     String json;
-    root.printTo(json);
+    serializeJson(doc, json);
 
     // Log(F("Sensor readings"), F("Hum/Temp/Press/Gas:"));
     // Log(F("Sensor readings"), json);
@@ -2035,87 +2048,83 @@ String GetSensor()
 
 String GetLuxSensor()
 {
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
+    JsonDocument doc;
 
-    root["lux"] = currentLux;
-    root["hostname"] = hostname;
+    doc["lux"] = currentLux;
+    doc["hostname"] = hostname;
 
     String json;
-    root.printTo(json);
+    serializeJson(doc, json);
 
     return json;
 }
 
 String GetBrightness()
 {
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
+    JsonDocument doc;
 
-    root["brightness_255"] = currentMatrixBrightness;
-    root["brightness"] = map(currentMatrixBrightness, 0, 255, 0, 100);
-    root["hostname"] = hostname;
+    doc["brightness_255"] = currentMatrixBrightness;
+    doc["brightness"] = map(currentMatrixBrightness, 0, 255, 0, 100);
+    doc["hostname"] = hostname;
 
     String json;
-    root.printTo(json);
+    serializeJson(doc, json);
 
     return json;
 }
 
 String GetMatrixInfo()
 {
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
+    JsonDocument doc;
 
-    root["pixelitVersion"] = VERSION;
+    doc["pixelitVersion"] = VERSION;
     //// Matrix Config
-    root["note"] = note;
-    root["hostname"] = hostname;
-    root["deviceID"] = deviceID;
-    root["buildSection"] = STR(BUILD_SECTION);
-    root["freeSketchSpace"] = ESP.getFreeSketchSpace();
-    root["wifiRSSI"] = WiFi.RSSI();
-    root["wifiQuality"] = GetRSSIasQuality(WiFi.RSSI());
-    root["wifiSSID"] = WiFi.SSID();
-    root["ipAddress"] = WiFi.localIP().toString();
-    root["freeHeap"] = ESP.getFreeHeap();
-    root["currentMatrixBrightness"] = currentMatrixBrightness;
-    root["wifiBSSID"] = WiFi.BSSIDstr();
+    doc["note"] = note;
+    doc["hostname"] = hostname;
+    doc["deviceID"] = deviceID;
+    doc["buildSection"] = STR(BUILD_SECTION);
+    doc["freeSketchSpace"] = ESP.getFreeSketchSpace();
+    doc["wifiRSSI"] = WiFi.RSSI();
+    doc["wifiQuality"] = GetRSSIasQuality(WiFi.RSSI());
+    doc["wifiSSID"] = WiFi.SSID();
+    doc["ipAddress"] = WiFi.localIP().toString();
+    doc["freeHeap"] = ESP.getFreeHeap();
+    doc["currentMatrixBrightness"] = currentMatrixBrightness;
+    doc["wifiBSSID"] = WiFi.BSSIDstr();
 
 #if defined(ESP8266)
-    root["sketchSize"] = ESP.getSketchSize();
-    root["chipID"] = ESP.getChipId();
+    doc["sketchSize"] = ESP.getSketchSize();
+    doc["chipID"] = ESP.getChipId();
 #elif defined(ESP32)
-    root["chipID"] = uint64ToString(ESP.getEfuseMac());
+    doc["chipID"] = uint64ToString(ESP.getEfuseMac());
 #endif
 
-    root["cpuFreqMHz"] = ESP.getCpuFreqMHz();
-    root["sleepMode"] = sleepMode;
-    root["uptime"] = millis() / 1000;
-    root["resetReason"] = ResetReason();
-    JsonObject &matrix = root.createNestedObject("matrixsize");
+    doc["cpuFreqMHz"] = ESP.getCpuFreqMHz();
+    doc["sleepMode"] = sleepMode;
+    doc["uptime"] = millis() / 1000;
+    doc["resetReason"] = ResetReason();
+    JsonObject matrix = doc["matrixsize"].add<JsonObject>();
     matrix["cols"] = MATRIX_WIDTH;
     matrix["rows"] = MATRIX_HEIGHT;
 
     String json;
-    root.printTo(json);
+    serializeJson(doc, json);
 
     return json;
 }
 
 String GetButtons()
 {
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
+    JsonDocument doc;
 
     for (uint button = 0; button < 3; button++)
     {
-        root[btnAPINames[button]] = btnLastPublishState[button] ? "true" : "false";
+        doc[btnAPINames[button]] = btnLastPublishState[button] ? "true" : "false";
     }
-    root["hostname"] = hostname;
+    doc["hostname"] = hostname;
 
     String json;
-    root.printTo(json);
+    serializeJson(doc, json);
 
     return json;
 }
@@ -2135,21 +2144,20 @@ String GetTelemetry()
     const String TempSensorNames[] = {"none", "BME280", "DHT", "BME680", "BMP280", "SHT31"};
     const String LuxSensorNames[] = {"LDR", "BH1750", "Max44009"};
 
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
+    JsonDocument doc;
 
-    root["uuid"] = sha1(GetChipID());
-    root["version"] = VERSION;
-    root["type"] = isESP8266 ? "esp8266" : "esp32";
-    root["buildSection"] = STR(BUILD_SECTION);
+    doc["uuid"] = sha1(GetChipID());
+    doc["version"] = VERSION;
+    doc["type"] = isESP8266 ? "esp8266" : "esp32";
+    doc["buildSection"] = STR(BUILD_SECTION);
 
-    JsonObject &matrix = root.createNestedObject("matrix");
+    JsonObject matrix = doc["matrix"].add<JsonObject>();
     matrix["type"] = matrixType;
     matrix["name"] = MatrixTypeNames[matrixType - 1];
     matrix["width"] = MATRIX_WIDTH;
     matrix["height"] = MATRIX_HEIGHT;
 
-    JsonArray &sensors = root.createNestedArray("sensors");
+    JsonArray sensors = doc["sensors"].to<JsonArray>();
     sensors.add(LuxSensorNames[luxSensor]);
     if (tempSensor > 0)
     {
@@ -2157,7 +2165,8 @@ String GetTelemetry()
     }
 
     String json;
-    root.printTo(json);
+    serializeJson(doc, json);
+
     return json;
 }
 
@@ -2402,7 +2411,7 @@ void AnimateBMP(bool isShowRequired)
     }
 }
 
-void DrawSingleBitmap(JsonObject &json)
+void DrawSingleBitmap(JsonObject json)
 {
     int16_t h = json["size"]["height"].as<int16_t>();
     int16_t w = json["size"]["width"].as<int16_t>();
@@ -2427,7 +2436,7 @@ void DrawSingleBitmap(JsonObject &json)
     // JsonArray in IntArray konvertieren
     // dies ist nötig für diverse kleine Logiken z.B. Scrolltext
     // bei Multibitmaps landet hier nur eine der Bitmaps - das ist aber egal, da dann eh nicht gescrollt wird
-    json["data"].as<JsonArray>().copyTo(bmpArray);
+    copyArray(json["data"].as<JsonArray>(), bmpArray);
 }
 
 void DrawClock(bool fromJSON)
@@ -3195,7 +3204,7 @@ void ZigZagWipe(uint8_t r, uint8_t g, uint8_t b)
     matrix->show();
 }
 
-void BitmapWipe(JsonArray &data, int16_t w)
+void BitmapWipe(JsonArray data, int16_t w)
 {
     for (int16_t x = -w + 1; x <= 31; x++)
     {
@@ -3274,11 +3283,10 @@ void ShowBootAnimation()
 
 void ShowBatteryScreen()
 {
-    const size_t capacity = JSON_ARRAY_SIZE(64) + JSON_OBJECT_SIZE(1) + 2 * JSON_OBJECT_SIZE(2) + JSON_OBJECT_SIZE(3) + 350;
-    DynamicJsonBuffer jsonBuffer(capacity);
+    JsonDocument doc;
     const char *json = "{\"bitmap\":{\"data\":[0,0,65535,65535,65535,0,0,0,0,0,65535,2016,65535,0,0,0,0,65535,2016,2016,2016,65535,0,0,0,65535,2016,2016,2016,65535,0,0,0,65535,2016,2016,2016,65535,0,0,0,65535,2016,2016,2016,65535,0,0,0,65535,2016,2016,2016,65535,0,0,0,65535,65535,65535,65535,65535,0,0],\"position\":{\"x\":0,\"y\":0},\"size\":{\"width\":8,\"height\":8}}}";
-    JsonObject &root = jsonBuffer.parseObject(json);
-    if (root.success())
+    DeserializationError error = deserializeJson(doc, json);
+    if (!error)
     {
         Serial.println("parsed json");
     }
@@ -3288,7 +3296,7 @@ void ShowBatteryScreen()
     }
     getBatteryVoltage();
     matrix->clear();
-    DrawSingleBitmap(root["bitmap"]);
+    DrawSingleBitmap(doc["bitmap"]);
     DrawTextHelper(String(batteryLevel, 0) + "%", false, true, false, false, false, 255, 255, 255, 9, 1);
     matrix->show();
     delay(1000);
@@ -3859,14 +3867,12 @@ void displayUpdateScreen()
 {
     Log(F("UpdateScreen"), F("Display UpdateScreen..."));
 
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
+    JsonDocument doc;
 
-    BuildUpdateScreenJSON(root);
-
-    if (root.success())
+    BuildUpdateScreenJSON(doc);
+    if (!doc.isNull())
     {
-        CreateFrames(root, CHECKUPDATESCREEN_DURATION);
+        CreateFrames(doc, CHECKUPDATESCREEN_DURATION);
     }
     else
     {
@@ -3891,11 +3897,11 @@ void checkUpdate()
 
     if (statusCode == 200)
     {
-        DynamicJsonBuffer jsonBuffer;
-        JsonObject &root = jsonBuffer.parseObject(response);
-        if (root.containsKey("version"))
+        JsonDocument doc;
+        deserializeJson(doc, response);
+        if (doc["version"].is<const char *>())
         {
-            lastReleaseVersion = root["version"].as<String>();
+            lastReleaseVersion = doc["version"].as<const char *>();
 
             int result = compareVersions(lastReleaseVersion.c_str(), VERSION);
 
@@ -4187,7 +4193,7 @@ void SendMatrixInfo()
         {
             for (uint i = 0; i < sizeof websocketConnection / sizeof websocketConnection[0]; i++)
             {
-                webSocket.sendTXT(i, "{\"sysinfo\":" + matrixInfo + "}");
+                SendWsText(i, "{\"sysinfo\":" + matrixInfo + "}");
             }
         }
     }
@@ -4221,7 +4227,7 @@ void SendLDR(bool force)
     {
         for (unsigned int i = 0; i < sizeof websocketConnection / sizeof websocketConnection[0]; i++)
         {
-            webSocket.sendTXT(i, "{\"sensor\":" + luxSensor + "}");
+            SendWsText(i, "{\"sensor\":" + luxSensor + "}");
         }
     }
 
@@ -4268,7 +4274,7 @@ void SendSensor(bool force)
     {
         for (uint i = 0; i < sizeof websocketConnection / sizeof websocketConnection[0]; i++)
         {
-            webSocket.sendTXT(i, "{\"sensor\":" + Sensor + "}");
+            SendWsText(i, "{\"sensor\":" + Sensor + "}");
         }
     }
 
@@ -4282,7 +4288,7 @@ void SendConfig()
         for (uint i = 0; i < sizeof websocketConnection / sizeof websocketConnection[0]; i++)
         {
             String config = GetConfig();
-            webSocket.sendTXT(i, "{\"config\":" + config + "}");
+            SendWsText(i, "{\"config\":" + config + "}");
         }
     }
 }
