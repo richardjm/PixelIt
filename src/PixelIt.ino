@@ -319,15 +319,25 @@ String OldGetMP3PlayerInfo;
 // Websoket Vars
 String websocketConnection[10];
 
-bool DecodeRLEFrame(JsonVariant colorsInput, JsonVariant countsInput, JsonArray palette, uint16_t *output, uint16_t pixelCount)
+/// <summary>
+/// Decodes compact RLE frame data into a flat RGB565 output buffer.
+/// </summary>
+/// <param name="values">RLE color values (or palette indices) as a JSON array.</param>
+/// <param name="counts">RLE run lengths as a JSON array.</param>
+/// <param name="paletteInput">Optional palette JSON array. If null or missing, values are treated as direct RGB565 values.</param>
+/// <param name="pixelCount">Expected decoded pixel count.</param>
+/// <param name="output">Destination buffer for decoded pixels.</param>
+/// <returns>
+/// True when input is valid and exactly pixelCount pixels were decoded; otherwise false.
+/// </returns>
+bool DecodeRLEFrame(JsonArray values, JsonArray counts, JsonVariant paletteInput, uint16_t pixelCount, uint16_t *output)
 {
-    if (!colorsInput.is<JsonArray>() || !countsInput.is<JsonArray>())
+    if (!paletteInput.isNull() && !paletteInput.is<JsonArray>())
     {
         return false;
     }
 
-    JsonArray values = colorsInput.as<JsonArray>();
-    JsonArray counts = countsInput.as<JsonArray>();
+    JsonArray palette = paletteInput.as<JsonArray>();
 
     bool hasPalette = !palette.isNull();
     uint16_t paletteSize = hasPalette ? palette.size() : 0;
@@ -1710,22 +1720,15 @@ void CreateFrames(JsonDocument doc, int forceDuration)
                 animationBmpList[i][0] = 2;
             }
 
-            // Build palette once for RLE-encoded frames (optional).
-            // If absent, color values in frames are treated as direct RGB565.
+            // Palette is optional. If absent, c values are treated as direct RGB565.
             JsonVariant paletteInput = bitmapAnimation["p"];
-            JsonArray palette = paletteInput.as<JsonArray>();
-            if (!paletteInput.isNull() && !paletteInput.is<JsonArray>())
-            {
-                Log(F("BitmapAnimation"), F("Invalid palette array, skipping animation"));
-                return;
-            }
 
             int counter = 0;
             for (JsonVariant x : bitmapAnimation["data"].as<JsonArray>())
             {
                 if (x["c"].is<JsonArray>() && x["n"].is<JsonArray>())
                 {
-                    if (!DecodeRLEFrame(x["c"], x["n"], palette, animationBmpList[counter], bmpPosition.width * bmpPosition.height))
+                    if (!DecodeRLEFrame(x["c"], x["n"], paletteInput, bmpPosition.width * bmpPosition.height, animationBmpList[counter]))
                     {
                         Log(F("BitmapAnimation"), F("Invalid RLE frame, skipping animation"));
                         return;
@@ -2401,7 +2404,7 @@ void DrawSingleBitmap(JsonObject json)
     Position newPosition;
     if (!JsonToPosition(json, newPosition))
     {
-        Log(F("Bitmap"), F("Invalid compact layout, skipping bitmap"));
+        Log(F("Bitmap"), F("Invalid bitmap position, skipping bitmap"));
         return;
     }
     if ((newPosition.width * newPosition.height) > 64)
@@ -2415,18 +2418,7 @@ void DrawSingleBitmap(JsonObject json)
 
     if (json["c"].is<JsonArray>() && json["n"].is<JsonArray>())
     {
-        // RLE format: parallel c/n arrays.
-        // If "p" is present, c values are palette indices.
-        // If "p" is absent, c values are direct RGB565 colors.
-        JsonVariant paletteInput = json["p"];
-        JsonArray palette = paletteInput.as<JsonArray>();
-        if (!paletteInput.isNull() && !paletteInput.is<JsonArray>())
-        {
-            Log(F("Bitmap"), F("Invalid palette array, skipping bitmap"));
-            return;
-        }
-
-        if (!DecodeRLEFrame(json["c"], json["n"], palette, bmpArray, bmpPosition.width * bmpPosition.height))
+        if (!DecodeRLEFrame(json["c"], json["n"], json["p"], bmpPosition.width * bmpPosition.height, bmpArray))
         {
             Log(F("Bitmap"), F("Invalid compact RLE data, skipping bitmap"));
             return;
@@ -2441,10 +2433,9 @@ void DrawSingleBitmap(JsonObject json)
 
     // Plain uint16_t array format (existing)
     // Hier kann leider nicht die Funktion matrix->drawRGBBitmap() genutzt werde da diese Fehler in der Anzeige macht wenn es mehr wie 8x8 Pixel werden.
-    int16_t py = bmpPosition.y;
-    for (int16_t j = 0; j < bmpPosition.height; j++, py++)
+    for (int16_t j = 0; j < bmpPosition.height; j++)
         for (int16_t k = 0; k < bmpPosition.width; k++)
-            matrix->drawPixel(bmpPosition.x + k, py, bmpArray[j * bmpPosition.width + k]);
+            matrix->drawPixel(bmpPosition.x + k, bmpPosition.y + j, bmpArray[j * bmpPosition.width + k]);
 }
 
 void DrawClock(bool fromJSON)
