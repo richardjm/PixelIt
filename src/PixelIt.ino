@@ -260,7 +260,7 @@ uint clockCounterClock = 0;
 uint clockCounterDate = 0;
 float clockTimeZone = 1;
 time_t clockLastUpdate;
-uint8_t clockColorR = 255, clockColorG = 255, clockColorB = 255;
+RGBColor clockColor = RGBColor();
 uint clockAutoFallbackTime = 30;
 bool forceClock = false;
 bool clockBlinkAnimated = true;
@@ -440,7 +440,7 @@ void EnteredHotspotCallback(WiFiManager *manager)
 {
     Log(F("Hotspot"), "Waiting for WiFi configuration");
     matrix->clear();
-    DrawTextHelper("HOTSPOT", false, false, false, false, false, 255, 255, 255, 3, 1);
+    DrawTextHelper("HOTSPOT", false, false, false, false, false, RGBColor(), 3, 1);
     FadeIn();
 }
 
@@ -464,7 +464,7 @@ void SaveConfig()
     doc["matrixTempCorrection"] = matrixTempCorrection;
     doc["ntpServer"] = ntpServer;
     doc["clockTimeZone"] = clockTimeZone;
-    doc["clockColor"] = "#" + RGBtoHEX(clockColorR, clockColorG, clockColorB);
+    doc["clockColor"] = "#" + RGBtoHEX(clockColor);
     doc["clockSwitchAktiv"] = clockSwitchAktiv;
     doc["clockSwitchSec"] = clockSwitchSec;
     doc["clock24Hours"] = clock24Hours;
@@ -645,7 +645,7 @@ void SetConfigVariables(JsonDocument json)
 
     if (json["clockColor"].is<const char *>())
     {
-        HEXtoRGB(json["clockColor"].as<String>(), clockColorR, clockColorG, clockColorB);
+        HEXtoRGB(json["clockColor"].as<String>(), clockColor);
     }
 
     if (json["clockSwitchAktiv"].is<bool>())
@@ -1022,13 +1022,13 @@ void SleepScreen(bool startSleep, bool forceClockOnWake)
     {
         Log(F("SleepScreen"), F("Sleeping..."));
         matrix->clear();
-        DrawTextHelper("z", false, false, false, false, false, 0, 0, 255, (MATRIX_WIDTH / 2) - 6, 1);
+        DrawTextHelper("z", false, false, false, false, false, RGBColor(0, 0, 255), (MATRIX_WIDTH / 2) - 6, 1);
         matrix->show();
         delay(200);
-        DrawTextHelper("Z", false, false, false, false, false, 0, 0, 255, (MATRIX_WIDTH / 2) - 1, 1);
+        DrawTextHelper("Z", false, false, false, false, false, RGBColor(0, 0, 255), (MATRIX_WIDTH / 2) - 1, 1);
         matrix->show();
         delay(200);
-        DrawTextHelper("z", false, false, false, false, false, 0, 0, 255, (MATRIX_WIDTH / 2) + 4, 1);
+        DrawTextHelper("z", false, false, false, false, false, RGBColor(0, 0, 255), (MATRIX_WIDTH / 2) + 4, 1);
         matrix->show();
         delay(500);
         FadeOut(30, 0);
@@ -1506,20 +1506,9 @@ void CreateFrames(JsonDocument doc, int forceDuration)
             }
             else if (zigzagWipeAnimationAktiv)
             {
-                uint8_t r = 255;
-                uint8_t g = 255;
-                uint8_t b = 255;
-                if (switchAnimation["hexColor"].is<const char *>())
-                {
-                    HEXtoRGB(switchAnimation["hexColor"], r, g, b);
-                }
-                else if (switchAnimation["color"]["r"].is<uint8_t>() && switchAnimation["color"]["g"].is<uint8_t>() && switchAnimation["color"]["b"].is<uint8_t>())
-                {
-                    r = switchAnimation["color"]["r"];
-                    g = switchAnimation["color"]["g"];
-                    b = switchAnimation["color"]["b"];
-                }
-                ZigZagWipe(r, g, b);
+                RGBColor wipeColor;
+                JsonToRGB(switchAnimation, wipeColor);
+                ZigZagWipe(wipeColor);
             }
             else if (bitmapWipeAnimationAktiv)
             {
@@ -1586,18 +1575,8 @@ void CreateFrames(JsonDocument doc, int forceDuration)
                 clockDrawWeekDays = clock["drawWeekDays"];
             }
 
-            if (clock["color"]["r"].is<uint8_t>() && clock["color"]["g"].is<uint8_t>() && clock["color"]["b"].is<uint8_t>())
-            {
-                logMessage += F("color, ");
-                clockColorR = clock["color"]["r"];
-                clockColorG = clock["color"]["g"];
-                clockColorB = clock["color"]["b"];
-            }
-            else if (clock["hexColor"].is<const char *>())
-            {
-                logMessage += F("hexColor, ");
-                HEXtoRGB(clock["hexColor"], clockColorR, clockColorG, clockColorB);
-            }
+            JsonToRGB(clock, clockColor);
+            
             if (logMessage.endsWith(", "))
             {
                 logMessage.remove(logMessage.length() - 2);
@@ -1617,18 +1596,10 @@ void CreateFrames(JsonDocument doc, int forceDuration)
         {
             JsonObject bar = doc["bar"];
             logMessage += F("Bar, ");
-            uint8_t r = 0, g = 0, b = 0;
-            if (bar["hexColor"].is<const char *>())
-            {
-                HEXtoRGB(bar["hexColor"], r, g, b);
-            }
-            else if (bar["color"]["r"].is<uint8_t>() && bar["color"]["g"].is<uint8_t>() && bar["color"]["b"].is<uint8_t>())
-            {
-                r = bar["color"]["r"];
-                g = bar["color"]["g"];
-                b = bar["color"]["b"];
-            }
-            matrix->drawLine(bar["position"]["x"], bar["position"]["y"], bar["position"]["x2"], bar["position"]["y2"], matrix->Color(r, g, b));
+            RGBColor barColor = {0, 0, 0};
+            JsonToRGB(bar, barColor);
+            
+            matrix->drawLine(bar["position"]["x"], bar["position"]["y"], bar["position"]["x2"], bar["position"]["y2"], barColor);
         }
 
         // Bars
@@ -1637,18 +1608,9 @@ void CreateFrames(JsonDocument doc, int forceDuration)
             logMessage += F("Bars, ");
             for (JsonVariant x : doc["bars"].as<JsonArray>())
             {
-                uint8_t r = 0, g = 0, b = 0;
-                if (x["hexColor"].is<const char *>())
-                {
-                    HEXtoRGB(x["hexColor"], r, g, b);
-                }
-                else if (x["color"]["r"].is<uint8_t>() && x["color"]["g"].is<uint8_t>() && x["color"]["b"].is<uint8_t>())
-                {
-                    r = x["color"]["r"];
-                    g = x["color"]["g"];
-                    b = x["color"]["b"];
-                }
-                matrix->drawLine(x["position"]["x"], x["position"]["y"], x["position"]["x2"], x["position"]["y2"], matrix->Color(r, g, b));
+                RGBColor barColor = {0, 0, 0};
+                JsonToRGB(x, barColor);
+                matrix->drawLine(x["position"]["x"], x["position"]["y"], x["position"]["x2"], x["position"]["y2"], barColor);
             }
         }
 
@@ -1765,17 +1727,8 @@ void CreateFrames(JsonDocument doc, int forceDuration)
             // Is ScrollText auto or true selected?
             scrollTextAktiv = text["scrollText"] == "auto" || (text["scrollText"].is<bool>() && text["scrollText"]);
 
-            uint8_t r, g, b;
-            if (text["hexColor"].is<const char *>())
-            {
-                HEXtoRGB(text["hexColor"], r, g, b);
-            }
-            else if (text["color"]["r"].is<uint8_t>() && text["color"]["g"].is<uint8_t>() && text["color"]["b"].is<uint8_t>())
-            {
-                r = text["color"]["r"];
-                g = text["color"]["g"];
-                b = text["color"]["b"];
-            }
+            RGBColor textColor;
+            JsonToRGB(text, textColor);
 
             // Is ScrollText auto or true selected?
             if (scrollTextAktiv)
@@ -1792,21 +1745,21 @@ void CreateFrames(JsonDocument doc, int forceDuration)
 
                 if (!(text["scrollText"]).is<bool>() && text["scrollText"] == "auto")
                 {
-                    DrawAutoTextScrolled(text["textString"], text["bigFont"], centerText, fadeInRequired, r, g, b, text["position"]["x"], text["position"]["y"]);
+                    DrawAutoTextScrolled(text["textString"], text["bigFont"], centerText, fadeInRequired, textColor, text["position"]["x"], text["position"]["y"]);
                 }
                 else
                 {
-                    DrawTextScrolled(text["textString"], text["bigFont"], centerText, fadeInRequired, r, g, b, text["position"]["x"], text["position"]["y"]);
+                    DrawTextScrolled(text["textString"], text["bigFont"], centerText, fadeInRequired, textColor, text["position"]["x"], text["position"]["y"]);
                 }
             }
             // is centerText selected?
             else if (text["centerText"])
             {
-                DrawTextCenter(text["textString"], text["bigFont"], r, g, b, text["position"]["x"], text["position"]["y"]);
+                DrawTextCenter(text["textString"], text["bigFont"], textColor, text["position"]["x"], text["position"]["y"]);
             }
             else
             {
-                DrawText(text["textString"], text["bigFont"], r, g, b, text["position"]["x"], text["position"]["y"]);
+                DrawText(text["textString"], text["bigFont"], textColor, text["position"]["x"], text["position"]["y"]);
             }
         }
 
@@ -2156,27 +2109,27 @@ String GetTelemetry()
     return json;
 }
 
-void DrawText(String text, int bigFont, int colorRed, int colorGreen, int colorBlue, int posX, int posY)
+void DrawText(String text, int bigFont, RGBColor color, int posX, int posY)
 {
-    DrawTextHelper(text, bigFont, false, false, false, false, colorRed, colorGreen, colorBlue, posX, posY);
+    DrawTextHelper(text, bigFont, false, false, false, false, color, posX, posY);
 }
 
-void DrawTextCenter(String text, int bigFont, int colorRed, int colorGreen, int colorBlue, int posX, int posY)
+void DrawTextCenter(String text, int bigFont, RGBColor color, int posX, int posY)
 {
-    DrawTextHelper(text, bigFont, true, false, false, false, colorRed, colorGreen, colorBlue, posX, posY);
+    DrawTextHelper(text, bigFont, true, false, false, false, color, posX, posY);
 }
 
-void DrawTextScrolled(String text, int bigFont, bool centerText, bool fadeInRequired, int colorRed, int colorGreen, int colorBlue, int posX, int posY)
+void DrawTextScrolled(String text, int bigFont, bool centerText, bool fadeInRequired, RGBColor color, int posX, int posY)
 {
-    DrawTextHelper(text, bigFont, centerText, true, false, fadeInRequired, colorRed, colorGreen, colorBlue, posX, posY);
+    DrawTextHelper(text, bigFont, centerText, true, false, fadeInRequired, color, posX, posY);
 }
 
-void DrawAutoTextScrolled(String text, int bigFont, bool centerText, bool fadeInRequired, int colorRed, int colorGreen, int colorBlue, int posX, int posY)
+void DrawAutoTextScrolled(String text, int bigFont, bool centerText, bool fadeInRequired, RGBColor color, int posX, int posY)
 {
-    DrawTextHelper(text, bigFont, centerText, false, true, fadeInRequired, colorRed, colorGreen, colorBlue, posX, posY);
+    DrawTextHelper(text, bigFont, centerText, false, true, fadeInRequired, color, posX, posY);
 }
 
-void DrawTextHelper(String text, int bigFont, bool centerText, bool scrollText, bool autoScrollText, bool fadeInRequired, int colorRed, int colorGreen, int colorBlue, int posX, int posY)
+void DrawTextHelper(String text, int bigFont, bool centerText, bool scrollText, bool autoScrollText, bool fadeInRequired, RGBColor color, int posX, int posY)
 {
     uint16_t xTextWidth, xAvailableTextSpace;
     int16_t boundsx1, boundsy1;
@@ -2241,7 +2194,7 @@ void DrawTextHelper(String text, int bigFont, bool centerText, bool scrollText, 
 
     matrix->setCursor(posX, posY);
 
-    matrix->setTextColor(matrix->Color(colorRed, colorGreen, colorBlue));
+    matrix->setTextColor(color);
 
     if (scrollText || (autoScrollText && xTextWidth > xAvailableTextSpace)) // scroll text if text is larger than available pixels
     {
@@ -2523,10 +2476,10 @@ void DrawClock(bool fromJSON)
 
             if (clockFontIsLarge) // fade rather than vertical animate purely because DrawTextCenter doesnt have a Y argument...
             {
-                DrawTextCenter(String(time), clockFontChoice, clockColorR, clockColorG, clockColorB, 0, 1);
+                DrawTextCenter(String(time), clockFontChoice, clockColor, 0, 1);
                 FadeOut(30);
                 matrix->clear();
-                DrawTextCenter(String(date), clockFontChoice, clockColorR, clockColorG, clockColorB, 0, 1);
+                DrawTextCenter(String(date), clockFontChoice, clockColor, 0, 1);
                 FadeIn(30);
             }
             else
@@ -2536,8 +2489,8 @@ void DrawClock(bool fromJSON)
                 {
                     counter++;
                     matrix->clear();
-                    DrawText(String(time), false, clockColorR, clockColorG, clockColorB, xPosTime, (1 + counter));
-                    DrawText(String(date), false, clockColorR, clockColorG, clockColorB, 7, (-6 + counter));
+                    DrawText(String(time), false, clockColor, xPosTime, (1 + counter));
+                    DrawText(String(date), false, clockColor, 7, (-6 + counter));
                     matrix->drawLine(0, 7, 33, 7, 0);
                     if (clockDrawWeekDays)
                     {
@@ -2551,11 +2504,11 @@ void DrawClock(bool fromJSON)
         else if (clockFontIsLarge)
         {
 
-            DrawTextCenter(String(time), clockFontChoice, clockColorR, clockColorG, clockColorB, 0, 1);
+            DrawTextCenter(String(time), clockFontChoice, clockColor, 0, 1);
         }
         else
         {
-            DrawText(String(time), false, clockColorR, clockColorG, clockColorB, xPosTime, 1);
+            DrawText(String(time), false, clockColor, xPosTime, 1);
             xPosTime = 3;
         }
     }
@@ -2569,10 +2522,10 @@ void DrawClock(bool fromJSON)
 
             if (clockFontIsLarge) // fade rather than vertical animate purely because DrawTextCenter doesnt have a Y argument...
             {
-                DrawTextCenter(String(date), 2, clockColorR, clockColorG, clockColorB, 0, 1);
+                DrawTextCenter(String(date), 2, clockColor, 0, 1);
                 FadeOut(30);
                 matrix->clear();
-                DrawTextCenter(String(time), 2, clockColorR, clockColorG, clockColorB, 0, 1);
+                DrawTextCenter(String(time), 2, clockColor, 0, 1);
                 FadeIn(30);
             }
             else
@@ -2582,8 +2535,8 @@ void DrawClock(bool fromJSON)
                 {
                     counter++;
                     matrix->clear();
-                    DrawText(String(date), false, clockColorR, clockColorG, clockColorB, 7, (1 + counter));
-                    DrawText(String(time), false, clockColorR, clockColorG, clockColorB, xPosTime, (-6 + counter));
+                    DrawText(String(date), false, clockColor, 7, (1 + counter));
+                    DrawText(String(time), false, clockColor, xPosTime, (-6 + counter));
                     matrix->drawLine(0, 7, 33, 7, 0);
                     if (clockDrawWeekDays)
                     {
@@ -2596,11 +2549,11 @@ void DrawClock(bool fromJSON)
         }
         else if (clockFontIsLarge)
         {
-            DrawTextCenter(String(date), clockFontChoice, clockColorR, clockColorG, clockColorB, 0, 1);
+            DrawTextCenter(String(date), clockFontChoice, clockColor, 0, 1);
         }
         else
         {
-            DrawText(String(date), false, clockColorR, clockColorG, clockColorB, 7, 1);
+            DrawText(String(date), false, clockColor, 7, 1);
         }
     }
 
@@ -2635,11 +2588,11 @@ void DrawWeekDay()
     {
         if (i == weekDayNumber)
         {
-            matrix->drawLine(2 + i * 4, 7, i * 4 + 4, 7, matrix->Color(clockColorR, clockColorG, clockColorB));
+            matrix->drawLine(2 + i * 4, 7, i * 4 + 4, 7, clockColor);
         }
         else
         {
-            matrix->drawLine(2 + i * 4, 7, i * 4 + 4, 7, 21162);
+            matrix->drawLine(2 + i * 4, 7, i * 4 + 4, 7, RGBColor(211, 162, 62));
         }
     }
 }
@@ -3150,7 +3103,7 @@ void ColoredBarWipe()
     }
 }
 
-void ZigZagWipe(uint8_t r, uint8_t g, uint8_t b)
+void ZigZagWipe(RGBColor color)
 {
     for (uint16_t row = 0; row <= 7; row += 2)
     {
@@ -3159,14 +3112,14 @@ void ZigZagWipe(uint8_t r, uint8_t g, uint8_t b)
             if (row == 0 || row == 4)
             {
                 matrix->fillRect(0, row, col - 1, 2, matrix->Color(0, 0, 0));
-                matrix->drawFastVLine(col - 1, row, 2, matrix->Color(r, g, b));
-                matrix->drawFastVLine(col, row, 2, matrix->Color(r, g, b));
+                matrix->drawFastVLine(col - 1, row, 2, color);
+                matrix->drawFastVLine(col, row, 2, color);
             }
             else
             {
                 matrix->fillRect(32 - col, row, col, 2, matrix->Color(0, 0, 0));
-                matrix->drawFastVLine(32 - col, row, 2, matrix->Color(r, g, b));
-                matrix->drawFastVLine(32 - col - 1, row, 2, matrix->Color(r, g, b));
+                matrix->drawFastVLine(32 - col, row, 2, color);
+                matrix->drawFastVLine(32 - col - 1, row, 2, color);
             }
             matrix->show();
             delay(5);
@@ -3174,13 +3127,13 @@ void ZigZagWipe(uint8_t r, uint8_t g, uint8_t b)
         matrix->fillRect(0, row, 32, 2, matrix->Color(0, 0, 0));
         if (row == 0 || row == 4)
         {
-            matrix->drawFastVLine(30, row + 1, 2, matrix->Color(r, g, b));
-            matrix->drawFastVLine(31, row + 1, 2, matrix->Color(r, g, b));
+            matrix->drawFastVLine(30, row + 1, 2, color);
+            matrix->drawFastVLine(31, row + 1, 2, color);
         }
         else
         {
-            matrix->drawFastVLine(0, row + 1, 2, matrix->Color(r, g, b));
-            matrix->drawFastVLine(1, row + 1, 2, matrix->Color(r, g, b));
+            matrix->drawFastVLine(0, row + 1, 2, color);
+            matrix->drawFastVLine(1, row + 1, 2, color);
         }
         matrix->show();
         delay(5);
@@ -3209,13 +3162,13 @@ void BitmapWipe(JsonArray data, int16_t w)
     }
 }
 
-void ColorFlash(int red, int green, int blue)
+void ColorFlash(RGBColor color)
 {
     for (uint16_t row = 0; row < 8; row++)
     {
         for (uint16_t column = 0; column < 32; column++)
         {
-            matrix->drawPixel(column, row, matrix->Color(red, green, blue));
+            matrix->drawPixel(column, row, color);
         }
     }
     matrix->show();
@@ -3241,28 +3194,28 @@ uint ColorWheel(byte wheelPos, int pos)
 
 void ShowBootAnimation()
 {
-    DrawTextHelper("P", false, false, false, false, false, 255, 51, 255, (MATRIX_WIDTH / 2) - 12, 1);
+    DrawTextHelper("P", false, false, false, false, false, RGBColor(255, 51, 255), (MATRIX_WIDTH / 2) - 12, 1);
     matrix->show();
 
     delay(200);
-    DrawTextHelper("I", false, false, false, false, false, 0, 255, 42, (MATRIX_WIDTH / 2) - 8, 1);
+    DrawTextHelper("I", false, false, false, false, false, RGBColor(0, 255, 42), (MATRIX_WIDTH / 2) - 8, 1);
     matrix->show();
 
     delay(200);
-    DrawTextHelper("X", false, false, false, false, false, 255, 25, 25, (MATRIX_WIDTH / 2) - 6, 1);
+    DrawTextHelper("X", false, false, false, false, false, RGBColor(255, 25, 25), (MATRIX_WIDTH / 2) - 6, 1);
     matrix->show();
 
     delay(200);
-    DrawTextHelper("E", false, false, false, false, false, 25, 255, 255, (MATRIX_WIDTH / 2) - 2, 1);
+    DrawTextHelper("E", false, false, false, false, false, RGBColor(25, 255, 255), (MATRIX_WIDTH / 2) - 2, 1);
     matrix->show();
 
     delay(200);
-    DrawTextHelper("L", false, false, false, false, false, 255, 221, 51, (MATRIX_WIDTH / 2) + 2, 1);
+    DrawTextHelper("L", false, false, false, false, false, RGBColor(255, 221, 51), (MATRIX_WIDTH / 2) + 2, 1);
     matrix->show();
 
     delay(500);
-    DrawTextHelper("I", false, false, false, false, false, 255, 255, 255, (MATRIX_WIDTH / 2) + 6, 1);
-    DrawTextHelper("T", false, false, false, false, false, 255, 255, 255, (MATRIX_WIDTH / 2) + 8, 1);
+    DrawTextHelper("I", false, false, false, false, false, RGBColor(255, 255, 255), (MATRIX_WIDTH / 2) + 6, 1);
+    DrawTextHelper("T", false, false, false, false, false, RGBColor(255, 255, 255), (MATRIX_WIDTH / 2) + 8, 1);
     matrix->show();
     delay(1000);
 }
@@ -3283,7 +3236,7 @@ void ShowBatteryScreen()
     getBatteryVoltage();
     matrix->clear();
     DrawSingleBitmap(doc["bitmap"]);
-    DrawTextHelper(String(batteryLevel, 0) + "%", false, true, false, false, false, 255, 255, 255, 9, 1);
+    DrawTextHelper(String(batteryLevel, 0) + "%", false, true, false, false, false, RGBColor(), 9, 1);
     matrix->show();
     delay(1000);
 }
@@ -4046,7 +3999,7 @@ void loop()
         }
         else if (performWipe == 3)
         {
-            ZigZagWipe(clockColorR, clockColorG, clockColorB);
+            ZigZagWipe(clockColor);
         }
         clockAktiv = true;
         clockCounterClock = 0;
@@ -4333,38 +4286,6 @@ void sendNTPpacket(String &address)
     udp.beginPacket(address.c_str(), 123);
     udp.write(packetBuffer, NTP_PACKET_SIZE);
     udp.endPacket();
-}
-
-// decode hex string into R G B decimals
-void HexToRgb(String hex, uint8_t &red, uint8_t &green, uint8_t &blue)
-{
-    const char *hexString = (hex[0] == '#') ? hex.c_str() + 1 : hex.c_str();
-    long number = strtol(hexString, nullptr, 16);
-    red = (number >> 16) & 0xFF;
-    green = (number >> 8) & 0xFF;
-    blue = number & 0xFF;
-}
-
-// convert R G B decimal values to hex string
-void RgbToHex(uint8_t red, uint8_t green, uint8_t blue, String &hex)
-{
-    String redHex = String(red, HEX);
-    if (redHex.length() < 2)
-    {
-        redHex = "0" + redHex;
-    }
-    String greenHex = String(green, HEX);
-    if (greenHex.length() < 2)
-    {
-        greenHex = "0" + greenHex;
-    }
-    String blueHex = String(blue, HEX);
-    if (blueHex.length() < 2)
-    {
-        blueHex = "0" + blueHex;
-    }
-    hex = "#" + redHex + greenHex + blueHex;
-    hex.toUpperCase();
 }
 
 void Log(String function, String message)

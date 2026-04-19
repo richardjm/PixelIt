@@ -253,12 +253,35 @@ float CelsiusToFahrenheit(float celsius)
 	return (celsius * 9 / 5) + 32;
 }
 
-// RGBtoHEX
-String RGBtoHEX(int r, int g, int b)
+/// <summary>
+/// RGB Color struct.
+///
+/// Can be auto casted to uint16_t using Framebuffer_GFX::Color()
+///
+/// Default: RGB(255, 255, 255) = White
+/// </summary>
+struct RGBColor
 {
-	String rs = String(r, HEX);
-	String gs = String(g, HEX);
-	String bs = String(b, HEX);
+    uint8_t r = 255;
+    uint8_t g = 255;
+    uint8_t b = 255;
+
+    RGBColor() {}
+    RGBColor(uint8_t _r, uint8_t _g, uint8_t _b) : r(_r), g(_g), b(_b) {}
+
+	// Auto cast to uint16_t using Framebuffer_GFX::Color()
+    operator uint16_t() const
+    {
+		return Framebuffer_GFX::Color(r, g, b);
+	}
+};
+
+// RGBtoHEX
+String RGBtoHEX(RGBColor color)
+{
+	String rs = String(color.r, HEX);
+	String gs = String(color.g, HEX);
+	String bs = String(color.b, HEX);
 
 	if (rs.length() == 1)
 		rs = "0" + rs;
@@ -271,7 +294,7 @@ String RGBtoHEX(int r, int g, int b)
 }
 
 // HEXtoRGB
-void HEXtoRGB(String hex, uint8_t &r, uint8_t &g, uint8_t &b)
+void HEXtoRGB(String hex, RGBColor &result)
 {
 	// Remove # if it exists
 	hex.replace("#", "");
@@ -281,14 +304,31 @@ void HEXtoRGB(String hex, uint8_t &r, uint8_t &g, uint8_t &b)
 	// regex: ^#?([a-f0-9]{6}|[a-f0-9]{3})$
 	if (hex.length() == 6)
 	{
-		r = strtol(hex.substring(0, 2).c_str(), nullptr, 16);
-		g = strtol(hex.substring(2, 4).c_str(), nullptr, 16);
-		b = strtol(hex.substring(4, 6).c_str(), nullptr, 16);
+		result.r = strtol(hex.substring(0, 2).c_str(), nullptr, 16);
+		result.g = strtol(hex.substring(2, 4).c_str(), nullptr, 16);
+		result.b = strtol(hex.substring(4, 6).c_str(), nullptr, 16);
 	}
 	else
 	{
-		r = 0;
-		g = 0;
-		b = 0;
+		result.r = 0;
+		result.g = 0;
+		result.b = 0;
+	}
+}
+
+/// <summary>
+/// Converts a JSON object with either a hexColor or r,g,b values to an RGBColor struct
+/// </summary>
+void JsonToRGB(JsonVariant parent, RGBColor &result)
+{
+	if (parent["hexColor"].is<const char *>())
+	{
+		HEXtoRGB(parent["hexColor"], result);
+	}
+	else if (parent["color"]["r"].is<uint8_t>() && parent["color"]["g"].is<uint8_t>() && parent["color"]["b"].is<uint8_t>())
+	{
+		result.r = parent["color"]["r"];
+		result.g = parent["color"]["g"];
+		result.b = parent["color"]["b"];
 	}
 }
