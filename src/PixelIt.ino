@@ -1682,15 +1682,48 @@ void CreateFrames(JsonDocument doc, int forceDuration)
                 animationBmpList[i][0] = 2;
             }
 
+            // Build palette once for RLE-encoded frames (optional).
+            // If absent, color values in frames are treated as direct RGB565.
+            bool hasPalette = bitmapAnimation["p"].is<JsonArray>();
+            uint16_t palette[256] = {};
+            uint16_t paletteSize = 0;
+            if (hasPalette)
+            {
+                for (JsonVariant c : bitmapAnimation["p"].as<JsonArray>())
+                {
+                    if (paletteSize >= 256) break;
+                    palette[paletteSize++] = c.as<uint16_t>();
+                }
+            }
+
             int counter = 0;
             for (JsonVariant x : bitmapAnimation["data"].as<JsonArray>())
             {
-                // JsonArray in IntArray konvertieren
-                copyArray(x.as<JsonArray>(), bmpArray);
-                // Speichern für die Ausgabe
-                for (int i = 0; i < 64; i++)
+                if (x["c"].is<JsonArray>() && x["n"].is<JsonArray>())
                 {
-                    animationBmpList[counter][i] = bmpArray[i];
+                    // Decode RLE using parallel c/n arrays
+                    JsonArray colorArr = x["c"].as<JsonArray>();
+                    JsonArray cntArr = x["n"].as<JsonArray>();
+                    int pixel = 0;
+                    auto colorIt = colorArr.begin();
+                    auto cntIt = cntArr.begin();
+                    while (colorIt != colorArr.end() && cntIt != cntArr.end() && pixel < bmpWidth * bmpHeight)
+                    {
+                        uint16_t val = (*colorIt).as<uint16_t>();
+                        int count = (*cntIt).as<int>();
+                        uint16_t color = hasPalette ? ((val < paletteSize) ? palette[val] : 0) : val;
+                        for (int n = 0; n < count && pixel < bmpWidth * bmpHeight; n++)
+                            animationBmpList[counter][pixel++] = color;
+                        ++colorIt;
+                        ++cntIt;
+                    }
+                }
+                else
+                {
+                    // Plain uint16_t array per frame (existing format)
+                    copyArray(x.as<JsonArray>(), bmpArray);
+                    for (int i = 0; i < bmpWidth * bmpHeight; i++)
+                        animationBmpList[counter][i] = bmpArray[i];
                 }
                 counter++;
             }
@@ -2363,19 +2396,57 @@ void DrawSingleBitmap(JsonObject json)
     bmpPosY = y;
     withBMP = true;
 
-    // Hier kann leider nicht die Funktion matrix->drawRGBBitmap() genutzt werde da diese Fehler in der Anzeige macht wenn es mehr wie 8x8 Pixel werden.
-    for (int16_t j = 0; j < h; j++, y++)
+    if (json["c"].is<JsonArray>() && json["n"].is<JsonArray>())
     {
-        for (int16_t i = 0; i < w; i++)
+        // RLE format: parallel c/n arrays.
+        // If "p" is present, c values are palette indices.
+        // If "p" is absent, c values are direct RGB565 colors.
+        bool hasPalette = json["p"].is<JsonArray>();
+        uint16_t palette[256] = {};
+        uint16_t paletteSize = 0;
+        if (hasPalette)
         {
-            matrix->drawPixel(x + i, y, json["data"][j * w + i].as<uint16_t>());
+            for (JsonVariant c : json["p"].as<JsonArray>())
+            {
+                if (paletteSize >= 256) break;
+                palette[paletteSize++] = c.as<uint16_t>();
+            }
         }
-    }
 
-    // JsonArray in IntArray konvertieren
-    // dies ist nötig für diverse kleine Logiken z.B. Scrolltext
-    // bei Multibitmaps landet hier nur eine der Bitmaps - das ist aber egal, da dann eh nicht gescrollt wird
-    copyArray(json["data"].as<JsonArray>(), bmpArray);
+        JsonArray colorArr = json["c"].as<JsonArray>();
+        JsonArray cntArr = json["n"].as<JsonArray>();
+        int pixel = 0;
+        auto colorIt = colorArr.begin();
+        auto cntIt = cntArr.begin();
+        while (colorIt != colorArr.end() && cntIt != cntArr.end() && pixel < w * h)
+        {
+            uint16_t val = (*colorIt).as<uint16_t>();
+            int count = (*cntIt).as<int>();
+            uint16_t color = hasPalette ? ((val < paletteSize) ? palette[val] : 0) : val;
+            for (int n = 0; n < count && pixel < w * h; n++)
+                bmpArray[pixel++] = color;
+            ++colorIt;
+            ++cntIt;
+        }
+
+        int16_t py = y;
+        for (int16_t j = 0; j < h; j++, py++)
+            for (int16_t k = 0; k < w; k++)
+                matrix->drawPixel(x + k, py, bmpArray[j * w + k]);
+    }
+    else
+    {
+        // Plain uint16_t array format (existing)
+        // Hier kann leider nicht die Funktion matrix->drawRGBBitmap() genutzt werde da diese Fehler in der Anzeige macht wenn es mehr wie 8x8 Pixel werden.
+        for (int16_t j = 0; j < h; j++, y++)
+            for (int16_t i = 0; i < w; i++)
+                matrix->drawPixel(x + i, y, json["data"][j * w + i].as<uint16_t>());
+
+        // JsonArray in IntArray konvertieren
+        // dies ist nötig für diverse kleine Logiken z.B. Scrolltext
+        // bei Multibitmaps landet hier nur eine der Bitmaps - das ist aber egal, da dann eh nicht gescrollt wird
+        copyArray(json["data"].as<JsonArray>(), bmpArray);
+    }
 }
 
 void DrawClock(bool fromJSON)
