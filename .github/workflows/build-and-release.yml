@@ -67,7 +67,7 @@ jobs:
         run: |
           python .github/webui.py
 
-      - name: Update version in PixelIt.ino 🔧
+      - name: Update version in platformio.ini 🔧
         run: |
           python .github/updateversion.py ${{  github.ref_name }}
 
