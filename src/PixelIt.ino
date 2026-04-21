@@ -1335,6 +1335,7 @@ void CreateFrames(JsonDocument doc, int forceDuration)
         logMessage += F("Set Gpio, ");
         if (setGpio["set"].is<bool>() && setGpio["gpio"].is<uint8_t>())
         {
+            bool setValue = setGpio["set"].as<bool>();
             uint8_t gpio = setGpio["gpio"];
 
             // If the GPIO is already present in the array?
@@ -1372,16 +1373,16 @@ void CreateFrames(JsonDocument doc, int forceDuration)
                     // Save data in array for the reset.
                     setGPIOReset[arrayIndex].gpio = gpio;
                     setGPIOReset[arrayIndex].resetMillis = (millis() + setGpio["duration"].as<ulong>());
-                    Log(F("SetGPIO"), "Pos: " + String(arrayIndex) + ", GPIO: " + String(gpio) + ", Duration: " + String(setGpio["duration"].as<const char *>()) + ", Value: " + setGpio["set"].as<const char *>());
+                    Log(F("SetGPIO"), "Pos: " + String(arrayIndex) + ", GPIO: " + String(gpio) + ", Duration: " + String(setGpio["duration"].as<ulong>()) + ", Value: " + String(setValue));
                 }
             }
             else
             {
-                Log(F("SetGPIO"), "GPIO: " + String(gpio) + ", Value: " + setGpio["set"].as<const char *>());
+                Log(F("SetGPIO"), "GPIO: " + String(gpio) + ", Value: " + String(setValue));
             }
             // Set GPIO
             pinMode(gpio, OUTPUT);
-            digitalWrite(gpio, setGpio["set"].as<bool>());
+            digitalWrite(gpio, setValue);
         }
     }
 
